@@ -12,7 +12,9 @@ DB_PATH = Path(os.environ.get("DB_PATH", str(Path(__file__).parent / "tourdecont
 
 
 def get_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    # Crée le dossier parent si nécessaire (ex: /data sur Render)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
