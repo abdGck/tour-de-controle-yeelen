@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tour de Contrôle v5 — Yeelen Consulting · Aperçu Design</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue:        #2878BE;
+  --blue-dark:   #1C5A8A;
+  --blue-light:  #EBF4FF;
+  --blue-border: #BFDBFE;
+  --gold:        #F5C020;
+  --gold-dark:   #D4A017;
+  --gold-light:  #FEF9E7;
+  --gold-border: #FDE68A;
+  --bg:          #F4F7FB;
+  --surface:     #FFFFFF;
+  --border:      #E2E8F0;
+  --text:        #1A2A3A;
+  --text-2:      #4A5568;
+  --text-3:      #94A3B8;
+  --green:       #16A34A;
+  --green-bg:    #F0FDF4;
+  --green-bd:    #BBF7D0;
+  --red:         #DC2626;
+  --red-bg:      #FFF1F1;
+  --red-bd:      #FECACA;
+  --orange:      #EA580C;
+  --shadow:      0 4px 20px rgba(40,120,190,.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── CHROME NAVIGATOR ─────────────────────────────────────── */
+.browser-chrome {
+  background: #1E2430;
+  border-radius: 14px 14px 0 0;
+  padding: 12px 16px 0;
+  display: flex; align-items: center; gap: 10px;
+}
+.dots { display: flex; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot.r { background: #FF5F57; }
+.dot.y { background: #FFBD2E; }
+.dot.g { background: #28C840; }
+.url-bar {
+  flex: 1; background: #2D3748; border-radius: 6px;
+  padding: 5px 12px; font-size: 12px; color: #94A3B8;
+  display: flex; align-items: center; gap: 8px;
+}
+.url-bar .lock { color: #68D391; font-size: 11px; }
+
+/* ── SHELL APP ─────────────────────────────────────────────── */
+.app-shell {
+  display: flex; height: calc(100vh - 46px);
+  background: white;
+  border-radius: 0 0 14px 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
+.sidebar {
+  width: 240px; flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 20px 16px;
+  display: flex; flex-direction: column; gap: 0;
+  overflow-y: auto;
+}
+.sb-logo {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.sb-logo-icon {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, #EBF4FF, #FEF9E7);
+  border-radius: 12px; border: 1px solid var(--blue-border);
+  display: flex; align-items: center; justify-content: center;
+}
+.sb-logo-text .name { font-size: 14px; font-weight: 800; color: var(--text); }
+.sb-logo-text .sub  { font-size: 10px; color: var(--blue); font-weight: 600; letter-spacing: .03em; }
+
+.user-badge {
+  background: #F4F7FB; border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px;
+  margin-bottom: 14px;
+}
+.user-badge .uname { font-size: 13px; font-weight: 700; }
+.role-chip {
+  display: inline-flex; align-items: center;
+  font-size: 10.5px; font-weight: 700;
+  border-radius: 20px; padding: 2px 9px;
+  margin-top: 3px;
+}
+.role-sa { background: var(--gold-light); color: var(--gold-dark); border: 1px solid var(--gold-border); }
+.role-admin { background: var(--blue-light); color: var(--blue); border: 1px solid var(--blue-border); }
+.role-view  { background: #F8FAFC; color: #64748B; border: 1px solid var(--border); }
+
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.kpi-mini {
+  border-radius: 10px; padding: 8px 7px; text-align: center;
+}
+.kpi-mini .label {
+  font-size: 9.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 3px;
+}
+.kpi-mini .val { font-size: 20px; font-weight: 800; line-height: 1; }
+.kpi-green { background: var(--green-bg); border: 1px solid var(--green-bd); }
+.kpi-green .label, .kpi-green .val { color: var(--green); }
+.kpi-red   { background: var(--red-bg);   border: 1px solid var(--red-bd); }
+.kpi-red   .label, .kpi-red   .val { color: var(--red); }
+.kpi-blue  { background: var(--blue-light); border: 1px solid var(--blue-border); }
+.kpi-blue  .label, .kpi-blue  .val { color: var(--blue); }
+.kpi-gold  { background: var(--gold-light); border: 1px solid var(--gold-border); }
+.kpi-gold  .label, .kpi-gold  .val { color: var(--gold-dark); }
+.kpi-gold .val { font-size: 17px; }
+
+.refresh-bar {
+  font-size: 10.5px; color: var(--text-3); margin: 2px 0 5px;
+}
+.progress-track {
+  height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 8px;
+}
+.progress-fill {
+  height: 3px; width: 62%; background: var(--blue); border-radius: 2px;
+}
+
+.btn-primary {
+  display: block; width: 100%;
+  background: var(--blue); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; text-align: center;
+  box-shadow: 0 4px 12px rgba(40,120,190,.25);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.btn-ghost {
+  display: block; width: 100%;
+  background: transparent; color: var(--text-2);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; text-align: center; margin-top: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ── MAIN ─────────────────────────────────────────────────── */
+.main { flex: 1; overflow-y: auto; padding: 22px 28px 28px; background: var(--bg); }
+
+.page-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 20px;
+}
+.page-header h1 { font-size: 22px; font-weight: 800; letter-spacing: -.025em; }
+.page-header p  { font-size: 13px; color: var(--text-3); margin-top: 3px; font-weight: 500; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--green-bg); border: 1px solid var(--green-bd);
+  border-radius: 20px; padding: 5px 12px;
+}
+.pulse { width: 7px; height: 7px; background: var(--green); border-radius: 50%; }
+.status-pill span { font-size: 12px; font-weight: 700; color: var(--green); }
+
+/* ── KPI CARDS ──────────────────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+.kpi-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  position: relative; overflow: hidden;
+}
+.kpi-card .accent-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.kpi-card .klabel {
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--text-3); margin-bottom: 6px;
+}
+.kpi-card .kvalue { font-size: 26px; font-weight: 800; line-height: 1.1; }
+.kpi-card .ksub   { font-size: 10.5px; color: var(--text-3); margin-top: 2px; }
+
+/* ── TABS ─────────────────────────────────────────────────── */
+.tabs-bar {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.tab {
+  padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--text-2); border-radius: 8px 8px 0 0;
+  border-bottom: 2px solid transparent;
+}
+.tab.active { color: var(--blue); border-bottom: 2px solid var(--blue); }
+.tab:hover  { background: var(--blue-light); }
+
+/* ── MAP placeholder ─────────────────────────────────────── */
+.map-placeholder {
+  background: #E8F0E8; border-radius: 12px;
+  height: 380px; display: flex; align-items: center;
+  justify-content: center; position: relative; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.map-inner { text-align: center; z-index: 2; }
+.map-inner p { color: #4A7A4A; font-size: 14px; font-weight: 600; margin-top: 8px; }
+
+/* SVG map simplified */
+.map-svg { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+
+.map-marker {
+  position: absolute;
+  width: 28px; height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  display: flex; align-items: center; justify-content: center;
+}
+.marker-label {
+  position: absolute;
+  background: white; border: 1px solid var(--border);
+  border-radius: 8px; padding: 3px 8px;
+  font-size: 10px; font-weight: 700; color: var(--text);
+  white-space: nowrap; box-shadow: var(--shadow);
+  top: -28px; left: 50%; transform: translateX(-50%);
+}
+
+/* ── FLEET CARDS ─────────────────────────────────────────── */
+.fleet-toolbar {
+  display: flex; gap: 10px; margin-bottom: 16px;
+}
+.fleet-search {
+  flex: 1; background: white; border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; font-size: 13px;
+  color: var(--text-3); font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.fleet-filter {
+  background: white; border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; font-size: 12.5px;
+  font-weight: 600; color: var(--text); cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.box-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+}
+.box-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; cursor: pointer;
+}
+.box-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.box-dot.on  { background: var(--green); }
+.box-dot.off { background: var(--red); }
+.box-name { font-size: 14px; font-weight: 700; }
+.box-id   { font-size: 11px; color: var(--text-3); font-weight: 500; margin-top: 1px; }
+.box-chevron { margin-left: auto; color: var(--text-3); font-size: 12px; }
+
+.box-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+.box-metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; padding-top: 12px; }
+.metric-mini {
+  background: #FAFBFC; border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px; text-align: center;
+}
+.metric-mini .ml { font-size: 9.5px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.metric-mini .mv { font-size: 20px; font-weight: 800; }
+
+/* ── HISTORY ─────────────────────────────────────────────── */
+.chart-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+}
+.chart-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.chart-area {
+  height: 120px; background: var(--bg);
+  border-radius: 8px; position: relative; overflow: hidden;
+}
+.chart-line-blue {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 70%;
+  background: linear-gradient(180deg, rgba(40,120,190,.15) 0%, rgba(40,120,190,.02) 100%);
+  border-top: 2px solid var(--blue); border-radius: 0 0 8px 8px;
+}
+.chart-line-gold {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 45%;
+  background: linear-gradient(180deg, rgba(245,192,32,.15) 0%, rgba(245,192,32,.02) 100%);
+  border-top: 2px solid var(--gold); border-radius: 0 0 8px 8px;
+}
+
+/* ── USERS TABLE ─────────────────────────────────────────── */
+.users-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.ut-head {
+  display: grid; grid-template-columns: 2fr 1.2fr 1.5fr 1fr;
+  padding: 10px 16px; background: #F8FAFC;
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px; font-weight: 700; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .07em;
+}
+.ut-row {
+  display: grid; grid-template-columns: 2fr 1.2fr 1.5fr 1fr;
+  padding: 12px 16px; border-bottom: 1px solid #F8FAFC;
+  align-items: center;
+}
+.ut-row:last-child { border-bottom: none; }
+.ut-user { display: flex; align-items: center; gap: 8px; }
+.avatar {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0;
+}
+.av-sa { background: var(--gold-light); }
+.av-ad { background: var(--blue-light); }
+.av-vi { background: #F1F5F9; }
+.ut-uname { font-size: 13px; font-weight: 700; }
+.ut-meta  { font-size: 10.5px; color: var(--text-3); }
+.ut-actions { display: flex; gap: 6px; }
+.ut-btn {
+  width: 28px; height: 28px; border-radius: 6px;
+  border: 1px solid var(--border); background: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; cursor: pointer;
+}
+
+/* ── JOURNAL ─────────────────────────────────────────────── */
+.log-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; margin-bottom: 5px;
+}
+.log-icon {
+  width: 28px; height: 28px; background: #F4F7FB; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;
+}
+.log-body { flex: 1; }
+.log-action { font-size: 12.5px; font-weight: 700; }
+.log-detail { font-size: 11.5px; color: var(--text-3); }
+.log-meta   { text-align: right; }
+.log-user   { font-size: 11px; font-weight: 600; color: var(--blue); }
+.log-time   { font-size: 10px; color: var(--text-3); }
+
+/* ── LOGIN PAGE ──────────────────────────────────────────── */
+.login-page {
+  min-height: 100vh; display: flex; align-items: center;
+  justify-content: center; background: var(--bg);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.login-card {
+  width: 380px;
+}
+.login-logo {
+  text-align: center; margin-bottom: 28px;
+}
+.login-icon {
+  width: 72px; height: 72px; margin: 0 auto 14px;
+  background: linear-gradient(135deg, #EBF4FF, #FEF9E7);
+  border-radius: 20px; border: 2px solid var(--blue-border);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-title { font-size: 26px; font-weight: 800; letter-spacing: -.03em; color: var(--text); }
+.login-sub   { font-size: 12px; font-weight: 600; color: var(--blue); margin-top: 4px; letter-spacing: .03em; }
+
+.server-ok {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--green-bg); border: 1px solid var(--green-bd);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 16px;
+}
+.server-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; flex-shrink: 0; }
+.server-ok span { font-size: 11.5px; font-weight: 600; color: var(--green); }
+
+.form-card {
+  background: white; border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 28px 22px;
+  box-shadow: 0 4px 24px rgba(40,120,190,.08);
+}
+.form-label { font-size: 11.5px; font-weight: 600; color: #64748B; margin-bottom: 4px; }
+.form-input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 13.5px; color: var(--text);
+  background: white; margin-bottom: 14px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  outline: none;
+}
+.form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(40,120,190,.12); }
+.btn-login {
+  width: 100%; padding: 11px; background: var(--blue); color: white;
+  border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif;
+  box-shadow: 0 4px 16px rgba(40,120,190,.3); margin-top: 6px;
+}
+.footer-note {
+  text-align: center; margin-top: 14px;
+  font-size: 10.5px; color: var(--text-3);
+}
+
+/* ── SCREENS WRAPPER ─────────────────────────────────────── */
+.screens {
+  display: flex; flex-direction: column; gap: 60px;
+  max-width: 1300px; margin: 0 auto; padding: 40px 24px;
+}
+.screen-label {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.screen-label .num {
+  width: 28px; height: 28px; background: var(--blue); color: white;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800;
+}
+.screen-label .title { font-size: 17px; font-weight: 800; color: var(--text); }
+.screen-label .sub { font-size: 12.5px; color: var(--text-3); font-weight: 500; margin-top: 1px; }
+
+.browser-wrap {
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.15), 0 4px 12px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+</style>
+</head>
+<body>
+
+<div class="screens">
+
+  <!-- ══ HEADER PAGE ══ -->
+  <div style="text-align:center;padding:20px 0 10px">
+    <div style="display:inline-flex;align-items:center;gap:14px;margin-bottom:12px">
+      <div style="width:52px;height:52px;background:linear-gradient(135deg,#EBF4FF,#FEF9E7);
+                  border-radius:14px;border:2px solid #BFDBFE;display:flex;align-items:center;justify-content:center">
+        <svg width="28" height="28" viewBox="0 0 100 100" fill="none">
+          <path d="M20 15 Q35 50 50 70 Q65 50 80 15" stroke="#F5C020" stroke-width="16" stroke-linecap="round" fill="none"/>
+          <path d="M50 70 Q50 85 50 95" stroke="#2878BE" stroke-width="16" stroke-linecap="round" fill="none"/>
+          <path d="M63 15 Q70 35 55 55" stroke="#2878BE" stroke-width="14" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:26px;font-weight:800;color:#1A2A3A;letter-spacing:-.03em">Tour de Contrôle v5</div>
+        <div style="font-size:13px;color:#2878BE;font-weight:600;letter-spacing:.03em">YEELEN CONSULTING · SchoolBox Africa</div>
+      </div>
+    </div>
+    <p style="font-size:14px;color:#64748B;max-width:560px;margin:0 auto">
+      Aperçu du nouveau design — Bleu Yeelen <span style="color:#2878BE;font-weight:700">#2878BE</span> +
+      Or <span style="color:#D4A017;font-weight:700">#F5C020</span>
+    </p>
+  </div>
+
+  <!-- ══ ÉCRAN 1 — LOGIN ══ -->
+  <div>
+    <div class="screen-label">
+      <div class="num">1</div>
+      <div><div class="title">Page de connexion</div><div class="sub">Écran d'accueil sécurisé</div></div>
+    </div>
+    <div class="browser-wrap">
+      <div class="browser-chrome">
+        <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+        <div class="url-bar"><span class="lock">🔒</span> localhost:8501</div>
+      </div>
+      <div class="login-page" style="min-height:560px;border-radius:0 0 14px 14px">
+        <div class="login-card">
+          <div class="login-logo">
+            <div class="login-icon">
+              <svg width="36" height="36" viewBox="0 0 100 100" fill="none">
+                <path d="M20 15 Q35 50 50 70 Q65 50 80 15" stroke="#F5C020" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M50 70 Q50 85 50 95" stroke="#2878BE" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M63 15 Q70 35 55 55" stroke="#2878BE" stroke-width="14" stroke-linecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div class="login-title">Tour de Contrôle</div>
+            <div class="login-sub">YEELEN CONSULTING · SchoolBox Africa</div>
+          </div>
+          <div class="server-ok">
+            <div class="server-dot"></div>
+            <span>Serveur opérationnel · localhost:5000</span>
+          </div>
+          <div class="form-card">
+            <div class="form-label">Identifiant</div>
+            <input class="form-input" value="superadmin" readonly>
+            <div class="form-label">Mot de passe</div>
+            <input class="form-input" type="password" value="password" readonly>
+            <button class="btn-login">Se connecter →</button>
+          </div>
+          <div class="footer-note">Yeelen Consulting © 2026 · Tour de Contrôle v5</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN 2 — DASHBOARD + CARTE ══ -->
+  <div>
+    <div class="screen-label">
+      <div class="num">2</div>
+      <div><div class="title">Tableau de bord — Carte</div><div class="sub">Vue géographique des boxes</div></div>
+    </div>
+    <div class="browser-wrap">
+      <div class="browser-chrome">
+        <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+        <div class="url-bar"><span class="lock">🔒</span> localhost:8501</div>
+      </div>
+      <div class="app-shell" style="height:680px">
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <div class="sb-logo">
+            <div class="sb-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+                <path d="M20 15 Q35 50 50 70 Q65 50 80 15" stroke="#F5C020" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M50 70 Q50 85 50 95" stroke="#2878BE" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M63 15 Q70 35 55 55" stroke="#2878BE" stroke-width="14" stroke-linecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div class="sb-logo-text">
+              <div class="name">Tour de Contrôle</div>
+              <div class="sub">YEELEN CONSULTING</div>
+            </div>
+          </div>
+          <div class="user-badge">
+            <div class="uname">👤 superadmin</div>
+            <span class="role-chip role-sa">⭐ Superadmin</span>
+          </div>
+          <div class="divider"></div>
+          <div class="kpi-grid">
+            <div class="kpi-mini kpi-green"><div class="label">En ligne</div><div class="val">3</div></div>
+            <div class="kpi-mini kpi-red"><div class="label">Hors-ligne</div><div class="val">1</div></div>
+            <div class="kpi-mini kpi-blue"><div class="label">Usagers</div><div class="val">47</div></div>
+            <div class="kpi-mini kpi-gold"><div class="label">Data</div><div class="val">430<span style="font-size:11px"> Mo</span></div></div>
+          </div>
+          <div class="divider"></div>
+          <div class="refresh-bar">Actualisé à 14:32:10 · dans 18s</div>
+          <div class="progress-track"><div class="progress-fill"></div></div>
+          <button class="btn-primary">↻  Rafraîchir maintenant</button>
+          <button class="btn-ghost">↩  Déconnexion</button>
+        </div>
+        <!-- Main -->
+        <div class="main">
+          <div class="page-header">
+            <div>
+              <h1>Tableau de bord</h1>
+              <p>4 boxes · Afrique de l'Ouest · Yeelen Consulting</p>
+            </div>
+            <div class="status-pill">
+              <div class="pulse"></div>
+              <span>3 en ligne · 1 hors-ligne</span>
+            </div>
+          </div>
+          <!-- KPI Cards -->
+          <div class="kpi-row">
+            <div class="kpi-card">
+              <div class="accent-bar" style="background:#E2E8F0"></div>
+              <div class="klabel">📦 Total boxes</div>
+              <div class="kvalue">4</div>
+            </div>
+            <div class="kpi-card">
+              <div class="accent-bar" style="background:#BBF7D0"></div>
+              <div class="klabel">🟢 En ligne</div>
+              <div class="kvalue" style="color:#16A34A">3</div>
+            </div>
+            <div class="kpi-card">
+              <div class="accent-bar" style="background:#2878BE"></div>
+              <div class="klabel">👥 Usagers actifs</div>
+              <div class="kvalue" style="color:#2878BE">47</div>
+              <div class="ksub">sur 4 boxes</div>
+            </div>
+            <div class="kpi-card">
+              <div class="accent-bar" style="background:#F5C020"></div>
+              <div class="klabel">📶 Data consommée</div>
+              <div class="kvalue" style="color:#D4A017">430 <span style="font-size:16px">Mo</span></div>
+            </div>
+          </div>
+          <!-- Tabs -->
+          <div class="tabs-bar">
+            <div class="tab active">🗺️  Carte</div>
+            <div class="tab">📋  Flotte</div>
+            <div class="tab">📊  Historique</div>
+            <div class="tab">🗒️  Journal</div>
+            <div class="tab">👥  Utilisateurs</div>
+            <div class="tab">⚙️  Paramètres</div>
+          </div>
+          <!-- Map -->
+          <div class="map-placeholder">
+            <!-- Simplified Africa outline SVG -->
+            <svg class="map-svg" viewBox="0 0 600 380" xmlns="http://www.w3.org/2000/svg">
+              <rect width="600" height="380" fill="#D8E8D8"/>
+              <!-- Simplified West Africa outline -->
+              <path d="M120,80 Q160,60 200,65 Q240,70 280,85 Q320,100 340,130 Q360,160 350,200
+                       Q340,240 310,260 Q280,280 250,295 Q220,310 200,340 Q180,360 190,380
+                       L120,380 L80,300 Q60,240 70,180 Q80,120 120,80Z"
+                    fill="#C8DCC8" stroke="white" stroke-width="1.5" opacity=".7"/>
+              <!-- Ocean -->
+              <text x="30" y="200" font-size="11" fill="#5A8A9A" font-weight="500" opacity=".6">OCÉAN</text>
+              <text x="22" y="215" font-size="11" fill="#5A8A9A" font-weight="500" opacity=".6">ATLANTIQUE</text>
+              <!-- Grid lines -->
+              <line x1="0" y1="190" x2="600" y2="190" stroke="white" stroke-width=".5" opacity=".3"/>
+              <line x1="300" y1="0" x2="300" y2="380" stroke="white" stroke-width=".5" opacity=".3"/>
+            </svg>
+
+            <!-- Markers -->
+            <div style="position:absolute;left:18%;top:30%">
+              <div style="position:relative">
+                <div style="width:24px;height:24px;background:#16A34A;border-radius:50% 50% 50% 0;
+                            transform:rotate(-45deg);border:2px solid white;
+                            box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
+                <div style="position:absolute;top:-26px;left:-20px;background:white;
+                            border:1px solid #E2E8F0;border-radius:6px;padding:2px 7px;
+                            font-size:9px;font-weight:700;white-space:nowrap;
+                            box-shadow:0 2px 8px rgba(0,0,0,.1)">SchoolBox Dakar</div>
+              </div>
+            </div>
+            <div style="position:absolute;left:36%;top:22%">
+              <div style="position:relative">
+                <div style="width:24px;height:24px;background:#DC2626;border-radius:50% 50% 50% 0;
+                            transform:rotate(-45deg);border:2px solid white;
+                            box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
+                <div style="position:absolute;top:-26px;left:-22px;background:white;
+                            border:1px solid #E2E8F0;border-radius:6px;padding:2px 7px;
+                            font-size:9px;font-weight:700;white-space:nowrap;
+                            box-shadow:0 2px 8px rgba(0,0,0,.1)">SchoolBox Bamako</div>
+              </div>
+            </div>
+            <div style="position:absolute;left:52%;top:55%">
+              <div style="position:relative">
+                <div style="width:24px;height:24px;background:#16A34A;border-radius:50% 50% 50% 0;
+                            transform:rotate(-45deg);border:2px solid white;
+                            box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
+                <div style="position:absolute;top:-26px;left:-22px;background:white;
+                            border:1px solid #E2E8F0;border-radius:6px;padding:2px 7px;
+                            font-size:9px;font-weight:700;white-space:nowrap;
+                            box-shadow:0 2px 8px rgba(0,0,0,.1)">AgriBox Abidjan</div>
+              </div>
+            </div>
+            <div style="position:absolute;left:62%;top:48%">
+              <div style="position:relative">
+                <div style="width:24px;height:24px;background:#16A34A;border-radius:50% 50% 50% 0;
+                            transform:rotate(-45deg);border:2px solid white;
+                            box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
+                <div style="position:absolute;top:-26px;left:-18px;background:white;
+                            border:1px solid #E2E8F0;border-radius:6px;padding:2px 7px;
+                            font-size:9px;font-weight:700;white-space:nowrap;
+                            box-shadow:0 2px 8px rgba(0,0,0,.1)">SchoolBox Lomé</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN 3 — FLOTTE ══ -->
+  <div>
+    <div class="screen-label">
+      <div class="num">3</div>
+      <div><div class="title">Flotte connectée</div><div class="sub">Détail par box avec actions</div></div>
+    </div>
+    <div class="browser-wrap">
+      <div class="browser-chrome">
+        <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+        <div class="url-bar"><span class="lock">🔒</span> localhost:8501</div>
+      </div>
+      <div class="app-shell" style="height:640px">
+        <div class="sidebar">
+          <div class="sb-logo">
+            <div class="sb-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+                <path d="M20 15 Q35 50 50 70 Q65 50 80 15" stroke="#F5C020" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M50 70 Q50 85 50 95" stroke="#2878BE" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M63 15 Q70 35 55 55" stroke="#2878BE" stroke-width="14" stroke-linecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div class="sb-logo-text"><div class="name">Tour de Contrôle</div><div class="sub">YEELEN CONSULTING</div></div>
+          </div>
+          <div class="user-badge"><div class="uname">👤 superadmin</div><span class="role-chip role-sa">⭐ Superadmin</span></div>
+          <div class="divider"></div>
+          <div class="kpi-grid">
+            <div class="kpi-mini kpi-green"><div class="label">En ligne</div><div class="val">3</div></div>
+            <div class="kpi-mini kpi-red"><div class="label">Hors-ligne</div><div class="val">1</div></div>
+            <div class="kpi-mini kpi-blue"><div class="label">Usagers</div><div class="val">47</div></div>
+            <div class="kpi-mini kpi-gold"><div class="label">Data</div><div class="val">430<span style="font-size:11px"> Mo</span></div></div>
+          </div>
+          <div class="divider"></div>
+          <button class="btn-primary">↻  Rafraîchir maintenant</button>
+          <button class="btn-ghost">↩  Déconnexion</button>
+        </div>
+        <div class="main">
+          <div class="tabs-bar" style="margin-top:0">
+            <div class="tab">🗺️  Carte</div>
+            <div class="tab active">📋  Flotte</div>
+            <div class="tab">📊  Historique</div>
+            <div class="tab">🗒️  Journal</div>
+            <div class="tab">👥  Utilisateurs</div>
+          </div>
+          <div class="fleet-toolbar">
+            <input class="fleet-search" placeholder="🔍  Rechercher par nom ou ID…" readonly>
+            <select class="fleet-filter"><option>Tous</option></select>
+          </div>
+
+          <!-- Box 1 — open -->
+          <div class="box-card">
+            <div class="box-header">
+              <div class="box-dot on"></div>
+              <div><div class="box-name">SchoolBox Dakar 01</div><div class="box-id">EDUBOX_DEMO_01</div></div>
+              <div class="box-chevron">▾</div>
+            </div>
+            <div class="box-body">
+              <div class="box-metrics">
+                <div class="metric-mini">
+                  <div class="ml">🌡️ Temp CPU</div>
+                  <div class="mv" style="color:#16A34A">45°C</div>
+                </div>
+                <div class="metric-mini">
+                  <div class="ml">👥 Usagers</div>
+                  <div class="mv" style="color:#2878BE">12</div>
+                </div>
+                <div class="metric-mini">
+                  <div class="ml">📶 Data 4G</div>
+                  <div class="mv" style="color:#16A34A">105<span style="font-size:13px"> Mo</span></div>
+                </div>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid #F1F5F9">
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F1F5F9">
+                  <span style="font-size:11px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em">Statut</span>
+                  <span style="display:inline-flex;align-items:center;gap:5px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#16A34A">● Connecté</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F1F5F9">
+                  <span style="font-size:11px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em">IP Tailscale</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#2878BE;background:#EBF4FF;border:1px solid #BFDBFE;border-radius:5px;padding:2px 8px">100.72.10.11</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0">
+                  <span style="font-size:11px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em">Dernier signal</span>
+                  <span style="font-size:12.5px;font-weight:600;color:#1A2A3A">24/05/2026 14:32</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Box 2 — offline, closed -->
+          <div class="box-card" style="opacity:.75">
+            <div class="box-header">
+              <div class="box-dot off"></div>
+              <div><div class="box-name">SchoolBox Bamako 01</div><div class="box-id">EDUBOX_DEMO_02</div></div>
+              <span style="margin-left:auto;font-size:10.5px;background:#FFF1F1;color:#DC2626;border:1px solid #FECACA;padding:2px 9px;border-radius:10px;font-weight:700">Hors-ligne</span>
+              <div class="box-chevron" style="margin-left:8px">▸</div>
+            </div>
+          </div>
+          <!-- Box 3 -->
+          <div class="box-card">
+            <div class="box-header">
+              <div class="box-dot on"></div>
+              <div><div class="box-name">AgriBox Abidjan 01</div><div class="box-id">BOX_DEMO_03</div></div>
+              <div class="box-chevron">▸</div>
+            </div>
+          </div>
+          <div class="box-card">
+            <div class="box-header">
+              <div class="box-dot on"></div>
+              <div><div class="box-name">SchoolBox Lomé 01</div><div class="box-id">BOX_DEMO_04</div></div>
+              <div class="box-chevron">▸</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN 4 — HISTORIQUE ══ -->
+  <div>
+    <div class="screen-label">
+      <div class="num">4</div>
+      <div><div class="title">Historique & Graphiques</div><div class="sub">Température, usagers, data dans le temps</div></div>
+    </div>
+    <div class="browser-wrap">
+      <div class="browser-chrome">
+        <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+        <div class="url-bar"><span class="lock">🔒</span> localhost:8501</div>
+      </div>
+      <div class="app-shell" style="height:660px">
+        <div class="sidebar">
+          <div class="sb-logo">
+            <div class="sb-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+                <path d="M20 15 Q35 50 50 70 Q65 50 80 15" stroke="#F5C020" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M50 70 Q50 85 50 95" stroke="#2878BE" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M63 15 Q70 35 55 55" stroke="#2878BE" stroke-width="14" stroke-linecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div class="sb-logo-text"><div class="name">Tour de Contrôle</div><div class="sub">YEELEN CONSULTING</div></div>
+          </div>
+          <div class="user-badge"><div class="uname">👤 superadmin</div><span class="role-chip role-sa">⭐ Superadmin</span></div>
+          <div class="divider"></div>
+          <div class="kpi-grid">
+            <div class="kpi-mini kpi-green"><div class="label">En ligne</div><div class="val">3</div></div>
+            <div class="kpi-mini kpi-red"><div class="label">Hors-ligne</div><div class="val">1</div></div>
+            <div class="kpi-mini kpi-blue"><div class="label">Usagers</div><div class="val">47</div></div>
+            <div class="kpi-mini kpi-gold"><div class="label">Data</div><div class="val">430<span style="font-size:11px"> Mo</span></div></div>
+          </div>
+          <div class="divider"></div>
+          <button class="btn-primary">↻  Rafraîchir maintenant</button>
+        </div>
+        <div class="main">
+          <div class="tabs-bar">
+            <div class="tab">🗺️  Carte</div>
+            <div class="tab">📋  Flotte</div>
+            <div class="tab active">📊  Historique</div>
+            <div class="tab">🗒️  Journal</div>
+            <div class="tab">👥  Utilisateurs</div>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <select style="border:1px solid #E2E8F0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:#1A2A3A;font-family:'Plus Jakarta Sans',sans-serif;background:white">
+              <option>SchoolBox Dakar 01</option>
+            </select>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-title">🌡️ Température CPU — Évolution dans le temps</div>
+            <div class="chart-area">
+              <svg width="100%" height="100%" viewBox="0 0 800 120" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#2878BE" stop-opacity=".2"/>
+                    <stop offset="100%" stop-color="#2878BE" stop-opacity=".01"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0,90 C50,85 100,70 150,60 C200,50 250,65 300,55 C350,45 400,40 450,50 C500,60 550,45 600,35 C650,25 700,30 750,25 C775,22 790,20 800,18" fill="url(#gBlue)" stroke="#2878BE" stroke-width="2.5"/>
+                <line x1="0" y1="72" x2="800" y2="72" stroke="#EA580C" stroke-width="1.5" stroke-dasharray="6,4" opacity=".7"/>
+                <text x="5" y="68" font-size="9" fill="#EA580C" opacity=".8">50°C</text>
+                <line x1="0" y1="38" x2="800" y2="38" stroke="#DC2626" stroke-width="1.5" stroke-dasharray="6,4" opacity=".7"/>
+                <text x="5" y="34" font-size="9" fill="#DC2626" opacity=".8">70°C</text>
+              </svg>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="chart-card">
+              <div class="chart-title">👥 Usagers connectés</div>
+              <div class="chart-area">
+                <svg width="100%" height="100%" viewBox="0 0 400 120" preserveAspectRatio="none">
+                  <rect x="20" y="40" width="30" height="80" fill="#F5C020" rx="4"/>
+                  <rect x="70" y="20" width="30" height="100" fill="#F5C020" rx="4"/>
+                  <rect x="120" y="55" width="30" height="65" fill="#F5C020" rx="4"/>
+                  <rect x="170" y="30" width="30" height="90" fill="#F5C020" rx="4"/>
+                  <rect x="220" y="45" width="30" height="75" fill="#F5C020" rx="4"/>
+                  <rect x="270" y="25" width="30" height="95" fill="#F5C020" rx="4"/>
+                  <rect x="320" y="35" width="30" height="85" fill="#F5C020" rx="4"/>
+                  <rect x="370" y="10" width="30" height="110" fill="#2878BE" rx="4"/>
+                </svg>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">📶 Consommation Data (Mo)</div>
+              <div class="chart-area">
+                <svg width="100%" height="100%" viewBox="0 0 400 120" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="gGreen" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#16A34A" stop-opacity=".15"/>
+                      <stop offset="100%" stop-color="#16A34A" stop-opacity=".01"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M0,110 C50,100 100,90 150,75 C200,60 250,55 300,45 C350,35 370,25 400,15" fill="url(#gGreen)" stroke="#16A34A" stroke-width="2.5"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px">
+            <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:12px;position:relative;overflow:hidden">
+              <div style="height:3px;background:#FECACA;border-radius:2px;margin-bottom:8px"></div>
+              <div style="font-size:9.5px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">🌡️ Temp. max</div>
+              <div style="font-size:22px;font-weight:800;color:#DC2626">73°C</div>
+            </div>
+            <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:12px;position:relative;overflow:hidden">
+              <div style="height:3px;background:#BFDBFE;border-radius:2px;margin-bottom:8px"></div>
+              <div style="font-size:9.5px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">🌡️ Temp. moy</div>
+              <div style="font-size:22px;font-weight:800;color:#2878BE">47°C</div>
+            </div>
+            <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:12px;position:relative;overflow:hidden">
+              <div style="height:3px;background:#FDE68A;border-radius:2px;margin-bottom:8px"></div>
+              <div style="font-size:9.5px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">👥 Usagers max</div>
+              <div style="font-size:22px;font-weight:800;color:#D4A017">27</div>
+            </div>
+            <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:12px;position:relative;overflow:hidden">
+              <div style="height:3px;background:#BBF7D0;border-radius:2px;margin-bottom:8px"></div>
+              <div style="font-size:9.5px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">📶 Data max</div>
+              <div style="font-size:22px;font-weight:800;color:#16A34A">852<span style="font-size:13px"> Mo</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN 5 — UTILISATEURS ══ -->
+  <div>
+    <div class="screen-label">
+      <div class="num">5</div>
+      <div><div class="title">Gestion Utilisateurs</div><div class="sub">Comptes, rôles, création (superadmin & admin)</div></div>
+    </div>
+    <div class="browser-wrap">
+      <div class="browser-chrome">
+        <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+        <div class="url-bar"><span class="lock">🔒</span> localhost:8501</div>
+      </div>
+      <div class="app-shell" style="height:660px">
+        <div class="sidebar">
+          <div class="sb-logo">
+            <div class="sb-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+                <path d="M20 15 Q35 50 50 70 Q65 50 80 15" stroke="#F5C020" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M50 70 Q50 85 50 95" stroke="#2878BE" stroke-width="16" stroke-linecap="round" fill="none"/>
+                <path d="M63 15 Q70 35 55 55" stroke="#2878BE" stroke-width="14" stroke-linecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div class="sb-logo-text"><div class="name">Tour de Contrôle</div><div class="sub">YEELEN CONSULTING</div></div>
+          </div>
+          <div class="user-badge"><div class="uname">👤 superadmin</div><span class="role-chip role-sa">⭐ Superadmin</span></div>
+          <div class="divider"></div>
+          <div class="kpi-grid">
+            <div class="kpi-mini kpi-green"><div class="label">En ligne</div><div class="val">3</div></div>
+            <div class="kpi-mini kpi-red"><div class="label">Hors-ligne</div><div class="val">1</div></div>
+            <div class="kpi-mini kpi-blue"><div class="label">Usagers</div><div class="val">47</div></div>
+            <div class="kpi-mini kpi-gold"><div class="label">Data</div><div class="val">430<span style="font-size:11px"> Mo</span></div></div>
+          </div>
+        </div>
+        <div class="main">
+          <div class="tabs-bar">
+            <div class="tab">🗺️  Carte</div>
+            <div class="tab">📋  Flotte</div>
+            <div class="tab">📊  Historique</div>
+            <div class="tab">🗒️  Journal</div>
+            <div class="tab active">👥  Utilisateurs</div>
+            <div class="tab">⚙️  Paramètres</div>
+          </div>
+
+          <div style="font-size:16px;font-weight:800;color:#1A2A3A;margin-bottom:4px">👥 Comptes utilisateurs</div>
+          <div style="font-size:12px;color:#94A3B8;margin-bottom:16px">3 compte(s) enregistré(s)</div>
+
+          <div class="users-table" style="margin-bottom:20px">
+            <div class="ut-head"><div>Utilisateur</div><div>Rôle</div><div>Dernière connexion</div><div>Actions</div></div>
+            <!-- Superadmin -->
+            <div class="ut-row">
+              <div class="ut-user">
+                <div class="avatar av-sa">⭐</div>
+                <div><div class="ut-uname">superadmin</div><div class="ut-meta">Créé par system</div></div>
+              </div>
+              <div><span class="role-chip role-sa">⭐ Superadmin</span></div>
+              <div style="font-size:11.5px;color:#64748B">24/05/2026 14:30</div>
+              <div style="font-size:11px;color:#94A3B8;font-style:italic">Protégé</div>
+            </div>
+            <!-- Admin -->
+            <div class="ut-row">
+              <div class="ut-user">
+                <div class="avatar av-ad">🔧</div>
+                <div><div class="ut-uname">admin.senegal</div><div class="ut-meta">Créé par superadmin</div></div>
+              </div>
+              <div><span class="role-chip role-admin">🔧 Admin</span></div>
+              <div style="font-size:11.5px;color:#64748B">23/05/2026 09:14</div>
+              <div class="ut-actions">
+                <div class="ut-btn">🚫</div>
+                <div class="ut-btn">🗑️</div>
+              </div>
+            </div>
+            <!-- Viewer -->
+            <div class="ut-row">
+              <div class="ut-user">
+                <div class="avatar av-vi">👁</div>
+                <div><div class="ut-uname">viewer.mali</div><div class="ut-meta">Créé par admin.senegal</div></div>
+              </div>
+              <div><span class="role-chip role-view">👁 Viewer</span></div>
+              <div style="font-size:11.5px;color:#94A3B8">Jamais</div>
+              <div class="ut-actions">
+                <div class="ut-btn">🚫</div>
+                <div class="ut-btn">🗑️</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Create user form -->
+          <div style="background:white;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+            <div style="font-size:15px;font-weight:800;color:#1A2A3A;margin-bottom:12px">➕ Créer un compte</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+              <div>
+                <div class="form-label">Identifiant</div>
+                <input class="form-input" placeholder="prenom.nom" style="margin-bottom:0" readonly>
+              </div>
+              <div>
+                <div class="form-label">Mot de passe</div>
+                <input class="form-input" type="password" placeholder="min. 6 caractères" style="margin-bottom:0" readonly>
+              </div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div class="form-label">Rôle</div>
+              <select style="width:100%;border:1px solid #E2E8F0;border-radius:8px;padding:9px 12px;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:#1A2A3A;background:white">
+                <option>👁  Viewer — lecture seule</option>
+                <option>🔧 Admin — toutes les actions</option>
+              </select>
+            </div>
+            <button style="background:#2878BE;color:white;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:0 4px 12px rgba(40,120,190,.25)">Créer le compte →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN 6 — JOURNAL ══ -->
+  <div>
+    <div class="screen-label">
+      <div class="num">6</div>
+      <div><div class="title">Journal d'actions</div><div class="sub">Audit trail complet — toutes les opérations horodatées</div></div>
+    </div>
+    <div class="browser-wrap">
+      <div class="browser-chrome">
+        <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+        <div class="url-bar"><span class="lock">🔒</span> localhost:8501</div>
+      </div>
+      <div class="app-shell" style="height:500px">
+        <div class="sidebar" style="justify-content:flex-start">
+          <div class="sb-logo">
+            <div class="sb-logo-icon"><svg width="22" height="22" viewBox="0 0 100 100" fill="none"><path d="M20 15 Q35 50 50 70 Q65 50 80 15" stroke="#F5C020" stroke-width="16" stroke-linecap="round" fill="none"/><path d="M50 70 Q50 85 50 95" stroke="#2878BE" stroke-width="16" stroke-linecap="round" fill="none"/><path d="M63 15 Q70 35 55 55" stroke="#2878BE" stroke-width="14" stroke-linecap="round" fill="none"/></svg></div>
+            <div class="sb-logo-text"><div class="name">Tour de Contrôle</div><div class="sub">YEELEN CONSULTING</div></div>
+          </div>
+          <div class="user-badge"><div class="uname">👤 superadmin</div><span class="role-chip role-sa">⭐ Superadmin</span></div>
+        </div>
+        <div class="main">
+          <div class="tabs-bar">
+            <div class="tab">🗺️  Carte</div><div class="tab">📋  Flotte</div>
+            <div class="tab">📊  Historique</div><div class="tab active">🗒️  Journal</div>
+            <div class="tab">👥  Utilisateurs</div>
+          </div>
+          <div style="font-size:12.5px;color:#64748B;font-weight:500;margin-bottom:12px">8 entrées · 150 dernières actions</div>
+
+          <div class="log-row">
+            <div class="log-icon">✏️</div>
+            <div class="log-body"><div class="log-action">Rename Box</div><div class="log-detail">EDUBOX_DEMO_01 → SchoolBox Dakar 01</div></div>
+            <div class="log-meta"><div class="log-user">superadmin</div><div class="log-time">24/05/2026 14:22</div></div>
+          </div>
+          <div class="log-row">
+            <div class="log-icon">👤</div>
+            <div class="log-body"><div class="log-action">Create User</div><div class="log-detail">Créé admin.senegal (rôle: admin)</div></div>
+            <div class="log-meta"><div class="log-user">superadmin</div><div class="log-time">24/05/2026 10:05</div></div>
+          </div>
+          <div class="log-row">
+            <div class="log-icon">↺</div>
+            <div class="log-body"><div class="log-action">Reset Data</div><div class="log-detail">Remise à zéro data — BOX_DEMO_03</div></div>
+            <div class="log-meta"><div class="log-user">admin.senegal</div><div class="log-time">23/05/2026 16:40</div></div>
+          </div>
+          <div class="log-row">
+            <div class="log-icon">👤</div>
+            <div class="log-body"><div class="log-action">Create User</div><div class="log-detail">Créé viewer.mali (rôle: viewer)</div></div>
+            <div class="log-meta"><div class="log-user">admin.senegal</div><div class="log-time">23/05/2026 09:18</div></div>
+          </div>
+          <div class="log-row" style="opacity:.7">
+            <div class="log-icon">🔑</div>
+            <div class="log-body"><div class="log-action">Regenerate Token</div><div class="log-detail">Nouveau token API généré</div></div>
+            <div class="log-meta"><div class="log-user">superadmin</div><div class="log-time">22/05/2026 08:00</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <div style="text-align:center;padding:20px 0 40px;border-top:1px solid #E2E8F0;margin-top:20px">
+    <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="width:8px;height:8px;background:#2878BE;border-radius:50%"></div>
+      <span style="font-size:13px;font-weight:700;color:#2878BE">Bleu Yeelen #2878BE</span>
+      <div style="width:8px;height:8px;background:#F5C020;border-radius:50%;margin-left:10px"></div>
+      <span style="font-size:13px;font-weight:700;color:#D4A017">Or Yeelen #F5C020</span>
+    </div>
+    <div style="font-size:12px;color:#94A3B8">Tour de Contrôle v5 · Yeelen Consulting · SchoolBox Africa</div>
+  </div>
+
+</div>
+</body>
+</html>
