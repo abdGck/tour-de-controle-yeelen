@@ -34,7 +34,7 @@ ID_BOX = "MA_BOX_001"   # ← Nom unique de la box (ex: "EDUBOX-002", "AGRIBOX-0
 # ══════════════════════════════════════════════════════════════
 
 URL_TOUR_CONTROLE = "https://tour-de-controle-yeelen.onrender.com/mise_a_jour_box"
-API_TOKEN         = "8ec8da953c6811952a0324be372d647dc54194920c29583e1762d07598ae2216"
+API_TOKEN         = "126e6f92caec167033897858a5429ed596d1b1493bb7ce4e9477304de21faeb3"
 INTERVALLE_ENVOI  = 300   # secondes entre chaque envoi GPS (5 minutes)
 
 # ══════════════════════════════════════════════════════════════
