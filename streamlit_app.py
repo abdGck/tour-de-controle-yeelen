@@ -21,11 +21,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-_default_flask = os.environ.get("FLASK_URL", "http://localhost:5000")
-try:
-    FLASK_URL = st.secrets.get("FLASK_URL", _default_flask)
-except Exception:
-    FLASK_URL = _default_flask
+def _conf(key: str, default: str = "") -> str:
+    """Lit une valeur depuis les secrets Streamlit, sinon les variables d'env."""
+    try:
+        return st.secrets.get(key, os.environ.get(key, default))
+    except Exception:
+        return os.environ.get(key, default)
+
+FLASK_URL        = _conf("FLASK_URL", "http://localhost:5000")
+INTERNAL_API_KEY = _conf("INTERNAL_API_KEY", "")
+
+# En-têtes envoyés à Flask pour les routes protégées
+API_HEADERS = {"X-Internal-Key": INTERNAL_API_KEY} if INTERNAL_API_KEY else {}
 
 TAILSCALE_SERVER_IP = FLASK_URL.replace("https://","").replace("http://","").rstrip("/")
 REFRESH_INTERVAL    = 30
@@ -396,6 +403,36 @@ def admin_url(box_id: str, ip: str) -> str | None:
             else f"http://{ip}:8080/")
 
 
+def health_score(d: dict, uptime) -> tuple:
+    """
+    Calcule un score de santé global (0-100) à partir du statut, température et uptime.
+    Retourne (score, couleur, emoji, libellé).
+    """
+    score = 100
+    if d.get("status") != "Connecté":
+        score -= 55
+    t = d.get("temperature")
+    if t is not None:
+        if t >= 70:   score -= 30
+        elif t >= 50: score -= 12
+    if uptime is not None:
+        score -= int((100 - uptime) * 0.30)
+    score = max(0, min(100, score))
+
+    if score >= 80:
+        return score, "#16A34A", "🟢", "Bonne"
+    if score >= 50:
+        return score, "#EA580C", "🟡", "Moyenne"
+    return score, "#DC2626", "🔴", "Critique"
+
+
+def badge_health(score: int, color: str, emoji: str, label: str) -> str:
+    return (f'<span style="display:inline-flex;align-items:center;gap:5px;'
+            f'background:{color}1A;border:1px solid {color}55;border-radius:20px;'
+            f'padding:3px 11px;font-size:.74rem;font-weight:700;color:{color}">'
+            f'{emoji} Santé {label} · {score}%</span>')
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SESSION STATE
 # ══════════════════════════════════════════════════════════════════════════════
@@ -415,7 +452,8 @@ for k, v in _defaults.items():
 
 def _post(endpoint: str, payload: dict) -> dict:
     try:
-        r = requests.post(f"{FLASK_URL}{endpoint}", json=payload, timeout=5)
+        r = requests.post(f"{FLASK_URL}{endpoint}", json=payload,
+                          headers=API_HEADERS, timeout=8)
         return r.json()
     except Exception as e:
         return {"ok": False, "erreur": str(e)}
@@ -423,7 +461,7 @@ def _post(endpoint: str, payload: dict) -> dict:
 
 def _get(endpoint: str) -> list | dict | None:
     try:
-        r = requests.get(f"{FLASK_URL}{endpoint}", timeout=5)
+        r = requests.get(f"{FLASK_URL}{endpoint}", headers=API_HEADERS, timeout=8)
         return r.json()
     except:
         return None
@@ -431,7 +469,8 @@ def _get(endpoint: str) -> list | dict | None:
 
 def _delete(endpoint: str, payload: dict = None) -> dict:
     try:
-        r = requests.delete(f"{FLASK_URL}{endpoint}", json=payload or {}, timeout=5)
+        r = requests.delete(f"{FLASK_URL}{endpoint}", json=payload or {},
+                            headers=API_HEADERS, timeout=8)
         return r.json()
     except Exception as e:
         return {"ok": False, "erreur": str(e)}
@@ -439,7 +478,7 @@ def _delete(endpoint: str, payload: dict = None) -> dict:
 
 def fetch_boxes() -> dict:
     try:
-        r = requests.get(f"{FLASK_URL}/api/boxes", timeout=5)
+        r = requests.get(f"{FLASK_URL}/api/boxes", headers=API_HEADERS, timeout=8)
         r.raise_for_status()
         st.session_state.fetch_error = ""
         return r.json()
@@ -519,7 +558,7 @@ def login_page():
                             display:inline-block;flex-shrink:0;
                             animation:pulse 2s infinite"></span>
               <span style="font-size:.78rem;font-weight:600;color:#16A34A">
-                Serveur opérationnel · localhost:5000</span>
+                Serveur opérationnel</span>
             </div>""", unsafe_allow_html=True)
         else:
             st.markdown("""
@@ -712,11 +751,61 @@ def tab_carte(boxes: dict) -> None:
         st.info("En attente de signal des boxes…", icon="📡")
         return
 
+    # ── Résumé par pays ───────────────────────────────────────────────────────
+    pays_count: dict = {}
+    for d in boxes.values():
+        p = (d.get("pays") or "").strip() or "Non localisé"
+        on = d.get("status") == "Connecté"
+        pays_count.setdefault(p, {"total": 0, "on": 0})
+        pays_count[p]["total"] += 1
+        pays_count[p]["on"]    += 1 if on else 0
+
+    if pays_count:
+        chips = ""
+        for p, c in sorted(pays_count.items(), key=lambda x: -x[1]["total"]):
+            chips += (
+                f'<span style="display:inline-flex;align-items:center;gap:6px;'
+                f'background:#FFFFFF;border:1px solid #E2E8F0;border-radius:20px;'
+                f'padding:4px 12px;font-size:.78rem;font-weight:600;color:#1A2A3A;'
+                f'margin:0 6px 6px 0">🌍 {p}'
+                f'<span style="color:#16A34A;font-weight:700">{c["on"]}</span>'
+                f'<span style="color:#94A3B8">/ {c["total"]}</span></span>')
+        st.markdown(f'<div style="margin-bottom:.9rem">{chips}</div>',
+                    unsafe_allow_html=True)
+
+    # ── Option : afficher le trajet GPS d'une box ─────────────────────────────
+    trail_boxes = ["— Aucun —"] + [boxes[b].get("nom_affiche", b) for b in boxes]
+    ct1, _ = st.columns([2, 3])
+    trail_sel = ct1.selectbox("🛰️ Afficher le trajet GPS de :", trail_boxes,
+                              key="carte_trail")
+
     m = folium.Map(
         location=[10.0, -5.0], zoom_start=5,
         tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
         attr="© CartoDB Voyager",
     )
+
+    # Tracer le trajet sélectionné
+    if trail_sel != "— Aucun —":
+        ids   = list(boxes.keys())
+        noms  = [boxes[b].get("nom_affiche", b) for b in ids]
+        bid   = ids[noms.index(trail_sel)]
+        trail = _get(f"/api/gps_trail/{bid}") or []
+        pts   = [[p["lat"], p["lon"]] for p in trail if p.get("lat") and p.get("lon")]
+        if len(pts) >= 2:
+            folium.PolyLine(pts, color="#2878BE", weight=3.5, opacity=.8,
+                            dash_array="6,8").add_to(m)
+            folium.CircleMarker(pts[0], radius=6, color="#16A34A",
+                                fill=True, fill_opacity=1,
+                                tooltip="Départ").add_to(m)
+            m.location = pts[-1]
+            m.zoom_start = 11
+        elif len(pts) == 1:
+            st.markdown('<div class="alert-info">📍 Une seule position connue — '
+                        'pas encore de trajet à tracer.</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-info">🛰️ Aucun historique GPS pour cette box '
+                        'pour le moment.</div>', unsafe_allow_html=True)
 
     for box_id, d in boxes.items():
         if not d.get("lat") or not d.get("lon"):
@@ -725,12 +814,15 @@ def tab_carte(boxes: dict) -> None:
         nom   = d.get("nom_affiche", box_id)
         t     = d.get("temperature")
         tc    = temp_color(t)
+        loc   = " · ".join(x for x in [(d.get("site") or "").strip(),
+                                       (d.get("pays") or "").strip()] if x)
 
         popup_html = f"""
         <div style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;
                     min-width:220px;padding:.3rem">
           <div style="font-size:.95rem;font-weight:700;color:#1A2A3A;
-                      margin-bottom:.5rem">{nom}</div>
+                      margin-bottom:.2rem">{nom}</div>
+          {f'<div style="font-size:.74rem;color:#94A3B8;margin-bottom:.5rem">📍 {loc}</div>' if loc else ''}
           <div style="display:inline-flex;align-items:center;gap:5px;
                       background:{"#F0FDF4" if is_on else "#FFF1F1"};
                       border:1px solid {"#BBF7D0" if is_on else "#FECACA"};
@@ -776,11 +868,17 @@ def tab_flotte(boxes: dict) -> None:
     role = st.session_state.role
     can_edit = role in ("superadmin", "admin")
 
-    cs, cf = st.columns([3, 1])
-    query  = cs.text_input("s", placeholder="🔍  Rechercher par nom ou ID…",
+    # ── Pays disponibles pour le filtre ───────────────────────────────────────
+    pays_set = sorted({(d.get("pays") or "").strip()
+                       for d in boxes.values() if (d.get("pays") or "").strip()})
+    pays_options = ["Tous pays"] + pays_set
+
+    cs, cf, cp = st.columns([3, 1, 1])
+    query   = cs.text_input("s", placeholder="🔍  Rechercher par nom, ID ou site…",
                             label_visibility="collapsed")
-    filtre = cf.selectbox("f", ["Tous", "Connecté", "Hors-ligne"],
+    filtre  = cf.selectbox("f", ["Tous", "Connecté", "Hors-ligne"],
                            label_visibility="collapsed")
+    pays_f  = cp.selectbox("p", pays_options, label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -794,14 +892,31 @@ def tab_flotte(boxes: dict) -> None:
         t     = d.get("temperature")
         ip    = d.get("ip_tailscale", "Non communiquée")
         mb    = d.get("data_mb", 0)
+        pays  = (d.get("pays") or "").strip()
+        site  = (d.get("site") or "").strip()
 
         if filtre != "Tous" and d.get("status") != filtre: continue
-        if query   and query.lower() not in (nom + box_id).lower(): continue
+        if pays_f != "Tous pays" and pays != pays_f: continue
+        if query and query.lower() not in (nom + box_id + pays + site).lower(): continue
 
         has_results = True
-        dot = "🟢" if is_on else "🔴"
+        dot   = "🟢" if is_on else "🔴"
+        loc   = f"  ·  📍 {site or pays}" if (site or pays) else ""
 
-        with st.expander(f"{dot}  {nom}  ·  {box_id}", expanded=False):
+        with st.expander(f"{dot}  {nom}  ·  {box_id}{loc}", expanded=False):
+            # ── Santé + uptime (7 derniers jours) ──────────────────────────────
+            stats  = _get(f"/api/box_stats/{box_id}") or {}
+            uptime = stats.get("uptime")
+            sc, scol, semoji, slabel = health_score(d, uptime)
+            up_txt = f"{uptime}%" if uptime is not None else "—"
+            st.markdown(
+                f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;'
+                f'margin-bottom:.8rem">{badge_health(sc, scol, semoji, slabel)}'
+                f'<span style="background:#EBF4FF;border:1px solid #BFDBFE;border-radius:20px;'
+                f'padding:3px 11px;font-size:.74rem;font-weight:700;color:#2878BE">'
+                f'📈 Disponibilité 7j · {up_txt}</span></div>',
+                unsafe_allow_html=True)
+
             mc1, mc2, mc3 = st.columns(3)
             tc = temp_color(t)
             mc1.markdown(f"""
@@ -855,6 +970,31 @@ def tab_flotte(boxes: dict) -> None:
                     })
                     if res.get("ok"):
                         st.success("✅ Nom mis à jour")
+                        st.session_state.boxes = fetch_boxes()
+                        st.rerun()
+                    else:
+                        st.error(res.get("erreur", "Erreur"))
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # ── Localisation (pays / site) ────────────────────────────────
+                st.markdown('<p style="font-size:.76rem;font-weight:600;color:#64748B;'
+                            'margin-bottom:.3rem">Localisation (pays · site)</p>',
+                            unsafe_allow_html=True)
+                cl1, cl2, cl3 = st.columns([2, 3, 1])
+                new_pays = cl1.text_input("pays", value=pays, key=f"pays_{box_id}",
+                                          placeholder="Pays", label_visibility="collapsed")
+                new_site = cl2.text_input("site", value=site, key=f"site_{box_id}",
+                                          placeholder="Ville / école / site",
+                                          label_visibility="collapsed")
+                if cl3.button("📍", key=f"btn_meta_{box_id}", help="Enregistrer la localisation"):
+                    res = _post("/api/box_meta", {
+                        "id_materiel": box_id,
+                        "pays": new_pays, "site": new_site,
+                        "done_by": st.session_state.username,
+                    })
+                    if res.get("ok"):
+                        st.success("✅ Localisation enregistrée")
                         st.session_state.boxes = fetch_boxes()
                         st.rerun()
                     else:
@@ -1020,6 +1160,172 @@ def tab_historique(boxes: dict) -> None:
                           str(int(df['users'].max())), "#F5C020"), unsafe_allow_html=True)
     s4.markdown(kpi_card("📶", "Data max",
                           f"{df['data_mb'].max():.0f} Mo", "#16A34A"), unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB — RAPPORTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _build_report_df(boxes: dict) -> pd.DataFrame:
+    """Construit le tableau récapitulatif de la flotte (avec uptime 7j)."""
+    rows = []
+    for box_id, d in boxes.items():
+        stats  = _get(f"/api/box_stats/{box_id}") or {}
+        rows.append({
+            "Box":           d.get("nom_affiche", box_id),
+            "ID":            box_id,
+            "Pays":          (d.get("pays") or "").strip() or "—",
+            "Site":          (d.get("site") or "").strip() or "—",
+            "Statut":        d.get("status", "?"),
+            "Température °C": d.get("temperature", ""),
+            "Usagers":       d.get("users", 0),
+            "Data Mo":       d.get("data_mb", 0),
+            "Disponibilité 7j %": stats.get("uptime", "—"),
+            "Temp. moy 7j":  stats.get("temp_moy", "—"),
+            "Dernier signal": d.get("last_seen", "?"),
+        })
+    return pd.DataFrame(rows)
+
+
+def _excel_bytes(df: pd.DataFrame) -> bytes:
+    from io import BytesIO
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Flotte Yeelen")
+    return buf.getvalue()
+
+
+def _pdf_bytes(df: pd.DataFrame, online: int, total: int,
+               total_u: int, total_d: float) -> bytes:
+    from fpdf import FPDF
+    from fpdf.enums import XPos, YPos
+
+    NL = dict(new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    def s(txt) -> str:
+        # Sécurité encodage latin-1 (police core fpdf)
+        return str(txt).encode("latin-1", "replace").decode("latin-1")
+
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf.add_page()
+
+    # En-tête bandeau bleu Yeelen
+    pdf.set_fill_color(40, 120, 190)
+    pdf.rect(0, 0, 297, 22, "F")
+    pdf.set_xy(10, 6)
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, s("YEELEN CONSULTING  -  Rapport de flotte SchoolBox"), **NL)
+
+    pdf.set_xy(10, 26)
+    pdf.set_text_color(120, 120, 120)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.cell(0, 6, s(f"Genere le {time.strftime('%d/%m/%Y a %H:%M')}  -  "
+                     f"Tour de Controle"), **NL)
+
+    # Bandeau KPIs
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(26, 42, 58)
+    kpi = (f"Total boxes : {total}      "
+           f"En ligne : {online}      "
+           f"Usagers : {total_u}      "
+           f"Data totale : {total_d:.0f} Mo")
+    pdf.cell(0, 7, s(kpi), **NL)
+    pdf.ln(2)
+
+    # Tableau
+    cols   = ["Box", "Pays", "Site", "Statut", "Température °C",
+              "Usagers", "Data Mo", "Disponibilité 7j %"]
+    widths = [55, 32, 45, 26, 28, 22, 26, 34]
+
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_fill_color(235, 244, 255)
+    pdf.set_text_color(40, 120, 190)
+    for c, w in zip(cols, widths):
+        pdf.cell(w, 8, s(c.replace("°", "deg ").replace("é", "e")),
+                 border=1, fill=True, align="C")
+    pdf.ln()
+
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(40, 40, 40)
+    for _, row in df.iterrows():
+        on = row["Statut"] == "Connecté"
+        for c, w in zip(cols, widths):
+            val = row.get(c, "")
+            if c == "Statut":
+                pdf.set_text_color(22, 163, 74) if on else pdf.set_text_color(220, 38, 38)
+                pdf.cell(w, 7, s("En ligne" if on else "Hors-ligne"), border=1, align="C")
+                pdf.set_text_color(40, 40, 40)
+            else:
+                pdf.cell(w, 7, s(val), border=1, align="C")
+        pdf.ln()
+
+    out = pdf.output()
+    return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
+
+
+def tab_rapports(boxes: dict) -> None:
+    st.markdown(section_title("📄 Rapports & exports",
+                              "Documents prêts à partager avec tes partenaires"),
+                unsafe_allow_html=True)
+
+    if not boxes:
+        st.info("Aucune box disponible pour générer un rapport.", icon="📄")
+        return
+
+    online   = sum(1 for b in boxes.values() if b.get("status") == "Connecté")
+    total    = len(boxes)
+    total_u  = sum(b.get("users", 0) for b in boxes.values())
+    total_d  = sum(b.get("data_mb", 0) for b in boxes.values())
+
+    st.markdown("""
+    <div class="alert-info" style="margin-bottom:1.2rem">
+      📊 Le rapport reprend l'état actuel de toute la flotte + le taux de disponibilité
+      sur 7 jours de chaque box. Idéal pour un bilan mensuel aux bailleurs.
+    </div>""", unsafe_allow_html=True)
+
+    if st.button("⚙️  Générer le rapport de flotte", use_container_width=False):
+        with st.spinner("Compilation des données…"):
+            df = _build_report_df(boxes)
+            st.session_state["report_df"]    = df
+            try:
+                st.session_state["report_xlsx"] = _excel_bytes(df)
+            except Exception as e:
+                st.session_state["report_xlsx"] = None
+                st.warning(f"Excel indisponible : {e}")
+            try:
+                st.session_state["report_pdf"] = _pdf_bytes(df, online, total, total_u, total_d)
+            except Exception as e:
+                st.session_state["report_pdf"] = None
+                st.warning(f"PDF indisponible : {e}")
+        st.success("✅ Rapport généré.")
+
+    if "report_df" in st.session_state:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.dataframe(st.session_state["report_df"], use_container_width=True, hide_index=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        cdl1, cdl2 = st.columns(2)
+        stamp = time.strftime("%Y%m%d_%H%M")
+        if st.session_state.get("report_pdf"):
+            with cdl1:
+                st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
+                st.download_button("⬇️  Télécharger le PDF",
+                                   st.session_state["report_pdf"],
+                                   file_name=f"Rapport_Yeelen_{stamp}.pdf",
+                                   mime="application/pdf",
+                                   use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+        if st.session_state.get("report_xlsx"):
+            with cdl2:
+                st.markdown('<div class="btn-gold">', unsafe_allow_html=True)
+                st.download_button("⬇️  Télécharger l'Excel",
+                                   st.session_state["report_xlsx"],
+                                   file_name=f"Rapport_Yeelen_{stamp}.xlsx",
+                                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                   use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1238,10 +1544,10 @@ def tab_parametres() -> None:
                   margin-bottom:.7rem;font-weight:600">
         {FLASK_URL}/mise_a_jour_box
       </div>
-      <div style="font-size:.78rem;color:#16A34A;font-weight:600;
-                  background:#F0FDF4;border:1px solid #BBF7D0;
+      <div style="font-size:.78rem;color:#2878BE;font-weight:600;
+                  background:#EBF4FF;border:1px solid #BFDBFE;
                   border-radius:6px;padding:.4rem .7rem">
-        ✅ Réseau Tailscale (100.x.x.x) — accès autorisé sans token
+        🔑 Chaque box doit envoyer son <b>api_token</b> (voir ci-dessous) pour être acceptée.
       </div>
     </div>""", unsafe_allow_html=True)
 
@@ -1261,7 +1567,8 @@ def tab_parametres() -> None:
   "temperature":   47.3,
   "users":         15,
   "data_mb":       125.4,
-  "ip_tailscale":  "100.x.x.x"
+  "ip_tailscale":  "100.x.x.x",
+  "api_token":     "votre_token_ci_dessous"
 }</pre>
     </div>""", unsafe_allow_html=True)
 
@@ -1320,13 +1627,34 @@ def tab_parametres() -> None:
 
     st.divider()
 
+    # ── Sécurité & alertes ────────────────────────────────────────────────────
+    st.markdown(section_title("🛡️ Sécurité & alertes"), unsafe_allow_html=True)
+    sec_on   = bool(INTERNAL_API_KEY)
+    st.markdown(
+        info_row("Protection API interne",
+                 ('<span style="color:#16A34A;font-weight:700">✅ Activée</span>' if sec_on
+                  else '<span style="color:#DC2626;font-weight:700">⚠️ Désactivée — '
+                       'définir INTERNAL_API_KEY</span>')) +
+        info_row("Serveur",
+                 ('🌐 Cloud (public)' if FLASK_URL.startswith("https")
+                  else '💻 Local')),
+        unsafe_allow_html=True,
+    )
+    st.markdown("""
+    <div class="alert-info" style="margin:.6rem 0 1.2rem">
+      📧 Les alertes email (box hors-ligne / surchauffe) se configurent côté serveur Render
+      via les variables <code>ALERT_EMAIL_FROM</code>, <code>ALERT_EMAIL_PASSWORD</code>,
+      <code>ALERT_EMAIL_TO</code>. Voir le guide de déploiement.
+    </div>""", unsafe_allow_html=True)
+
+    st.divider()
+
     # ── Token API ─────────────────────────────────────────────────────────────
-    st.markdown(section_title("🔑 Token API (optionnel — hors réseau Tailscale)"),
-                unsafe_allow_html=True)
+    st.markdown(section_title("🔑 Token API des boxes"), unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:.8rem;color:#64748B;margin-bottom:.9rem">
-      Les boxes sur le réseau Tailscale n'ont pas besoin de ce token.
-      Il est utile uniquement si une box envoie depuis un réseau externe.
+      Ce token doit être présent dans chaque envoi des boxes (champ <code>api_token</code>).
+      Le régénérer invalide immédiatement l'ancien — il faudra le mettre à jour sur chaque box.
     </div>""", unsafe_allow_html=True)
 
     token_data = _get("/api/token_info")
@@ -1348,7 +1676,8 @@ def tab_parametres() -> None:
             st.session_state[ck_token] = True
             st.rerun()
     else:
-        st.warning("⚠️ Les boxes hors Tailscale utilisant l'ancien token ne pourront plus envoyer.")
+        st.warning("⚠️ Toutes les boxes utilisant l'ancien token cesseront d'envoyer "
+                   "jusqu'à mise à jour de leur fichier tracker_gps.py.")
         ca, cb = st.columns(2)
         if ca.button("Confirmer régénération →", use_container_width=True):
             res = _post("/api/token_regenerate", {})
@@ -1428,29 +1757,24 @@ def main_app() -> None:
 
     # ── Onglets ───────────────────────────────────────────────────────────────
     role = st.session_state.role
-    tabs_labels = ["🗺️  Carte", "📋  Flotte", "📊  Historique",
-                   "🗒️  Journal"]
+
+    # (libellé, fonction de rendu) — construit dynamiquement selon le rôle
+    tab_defs = [
+        ("🗺️  Carte",       lambda: tab_carte(boxes)),
+        ("📋  Flotte",      lambda: tab_flotte(boxes)),
+        ("📊  Historique",  lambda: tab_historique(boxes)),
+        ("📄  Rapports",    lambda: tab_rapports(boxes)),
+        ("🗒️  Journal",     tab_journal),
+    ]
     if role in ("superadmin", "admin"):
-        tabs_labels.append("👥  Utilisateurs")
+        tab_defs.append(("👥  Utilisateurs", tab_utilisateurs))
     if role == "superadmin":
-        tabs_labels.append("⚙️  Paramètres")
+        tab_defs.append(("⚙️  Paramètres", tab_parametres))
 
-    tabs = st.tabs(tabs_labels)
-
-    with tabs[0]:
-        tab_carte(boxes)
-    with tabs[1]:
-        tab_flotte(boxes)
-    with tabs[2]:
-        tab_historique(boxes)
-    with tabs[3]:
-        tab_journal()
-    if role in ("superadmin", "admin") and len(tabs) >= 5:
-        with tabs[4]:
-            tab_utilisateurs()
-    if role == "superadmin" and len(tabs) >= 6:
-        with tabs[5]:
-            tab_parametres()
+    tabs = st.tabs([label for label, _ in tab_defs])
+    for tab, (_, render) in zip(tabs, tab_defs):
+        with tab:
+            render()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

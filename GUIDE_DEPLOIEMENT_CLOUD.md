@@ -1,457 +1,284 @@
 # ☁️ GUIDE DÉPLOIEMENT CLOUD
-## Accéder à l'interface depuis n'importe où dans le monde
-### Sans avoir besoin de ton PC allumé
+## Système déjà en production — Informations & Maintenance
+### Yeelen Consulting · Tour de Contrôle SchoolBox Africa
 
 ---
 
-> **Objectif :** Remplacer ton PC comme serveur par des services cloud gratuits ou peu coûteux,
-> pour que l'interface soit accessible 24h/24 depuis ton téléphone, tablette ou n'importe quel ordinateur.
+## 🟢 STATUT ACTUEL DU SYSTÈME
+
+| Service | URL | Statut |
+|---------|-----|--------|
+| **Interface web** | https://tour-de-controle-yeelen.streamlit.app | ✅ En ligne |
+| **Serveur Flask** | https://tour-de-controle-yeelen.onrender.com | ✅ En ligne |
+| **GitHub (code)** | https://github.com/abdGck/tour-de-controle-yeelen | ✅ Synchronisé |
 
 ---
 
-## 🗺️ LA NOUVELLE ARCHITECTURE
+## 📋 COMPTES & ACCÈS
+
+| Service | Identifiant | Mot de passe |
+|---------|-------------|--------------|
+| **Interface Streamlit** | `superadmin` | *(variable SUPERADMIN_PASSWORD sur Render)* |
+| **Render.com** | compte email Yeelen | *(ton mot de passe Render)* |
+| **Streamlit Cloud** | compte email Yeelen | *(ton mot de passe Streamlit)* |
+| **GitHub** | compte email Yeelen | *(ton mot de passe GitHub)* |
+
+**Token API des boxes :**
+```
+8ec8da953c6811952a0324be372d647dc54194920c29583e1762d07598ae2216
+```
+> Ce token est déjà intégré dans le fichier `tracker_gps_TEMPLATE.py`. Les boxes existantes l'utilisent déjà.
+
+---
+
+## 🏗️ ARCHITECTURE DÉPLOYÉE
 
 ```
-AVANT (local) :
-  Boxes → [ton PC allumé] → Interface (accessible seulement sur ton PC)
-
-APRÈS (cloud) :
-  Boxes → [Render.com 24h/24] → Interface Streamlit Cloud (accessible partout)
-                                           ↑
-                               Toi depuis n'importe où
-                               (téléphone, tablette, autre PC)
+Boxes Raspberry Pi
+  └─ tracker_gps.py
+       └─ POST https://tour-de-controle-yeelen.onrender.com/mise_a_jour_box
+            + api_token: 8ec8da95...
+                 │
+                 ▼
+         Render.com (Flask)
+         app.py + database.py
+         SQLite sur disque /data/tourdecontrole.db
+                 │
+                 ▼
+      Streamlit Community Cloud
+      streamlit_app.py
+      Lit les données via l'API Flask
+                 │
+                 ▼
+         Toi (navigateur)
+         https://tour-de-controle-yeelen.streamlit.app
 ```
-
-**Ce que tu vas utiliser :**
-
-| Service | Rôle | Coût |
-|---------|------|------|
-| **GitHub** | Stocker le code (obligatoire pour déployer) | Gratuit |
-| **Render.com** | Héberger le serveur Flask (reçoit les données des boxes) | ~7$/mois |
-| **Streamlit Community Cloud** | Héberger l'interface (tu as déjà un compte) | Gratuit |
-
-**Coût total : environ 7$/mois (~6,50€/mois)**
-
-> 💡 Pourquoi Render est payant ? Le serveur Flask doit être **toujours actif** pour recevoir les données des boxes toutes les 5 minutes. Le forfait gratuit de Render "s'endort" après 15 minutes d'inactivité, ce qui ferait perdre des données. Le forfait Starter à 7$/mois garantit que le serveur ne dort jamais.
 
 ---
 
-## ÉTAPE 1 — CRÉER UN COMPTE GITHUB
+## 🆕 ACTIVER LES NOUVELLES FONCTIONNALITÉS (sécurité + alertes)
 
-GitHub est un service qui stocke ton code en ligne. C'est lui qui fait le lien entre ton PC, Render et Streamlit Cloud.
+> Ces réglages se font **une seule fois**. Sans eux, l'interface fonctionne quand même,
+> mais sans la protection de sécurité ni les emails d'alerte.
 
-### 1.1 Créer le compte
+### A. 🔒 Sécuriser l'interface (clé interne) — FORTEMENT RECOMMANDÉ
 
-1. Va sur **https://github.com**
-2. Clique sur **"Sign up"** (S'inscrire)
-3. Entre ton adresse email, crée un mot de passe, choisis un nom d'utilisateur
-4. Valide ton email
-5. Sur la question "How many team members?" → choisis **"Just me"**
-6. Sur la question "Are you a student or teacher?" → choisis **"Neither"**
-7. Choisis le plan **gratuit (Free)**
+Objectif : empêcher quiconque connaissant ton URL Render d'accéder à tes données.
+Principe : une **clé secrète partagée** entre Render (serveur) et Streamlit (interface).
 
-✅ **Tu dois voir** un tableau de bord GitHub vide.
-
-### 1.2 Installer Git sur ton PC
-
-Git est le logiciel qui envoie ton code vers GitHub.
-
-1. Va sur **https://git-scm.com/download/win**
-2. Télécharge et installe (clique "Next" partout, laisse tout par défaut)
-3. Ouvre PowerShell et tape :
+**1. Génère une clé** (n'importe quelle longue chaîne aléatoire). Par exemple sur ton PC :
 ```powershell
-git --version
+python -c "import secrets; print(secrets.token_hex(24))"
 ```
-✅ **Tu dois voir :** `git version 2.xx.x`
+→ copie le résultat (ex: `4f8a9c2e1b...`).
 
-### 1.3 Configurer Git avec ton identité
+**2. Sur Render** → ton service → **Environment** → Add Environment Variable :
+| Key | Value |
+|-----|-------|
+| `INTERNAL_API_KEY` | *(la clé générée)* |
 
-Dans PowerShell, tape ces deux commandes (remplace avec ton vrai email et nom) :
-```powershell
-git config --global user.email "ton@email.com"
-git config --global user.name "Ton Nom"
+**3. Sur Streamlit Cloud** → ⋮ → Settings → **Secrets**, ajoute la **MÊME** clé :
+```toml
+FLASK_URL = "https://tour-de-controle-yeelen.onrender.com"
+INTERNAL_API_KEY = "colle_ici_exactement_la_meme_cle"
 ```
-Aucun message = ✅ c'est bon.
 
-### 1.4 Créer le dépôt GitHub (repository)
+> ⚠️ **RÈGLE D'OR :** la clé doit être **identique** des deux côtés.
+> - Définie aux **deux** endroits → 🔒 sécurité activée, tout fonctionne.
+> - Définie **nulle part** → ⚠️ ça marche mais sans protection (comme avant).
+> - Définie d'un **seul** côté → ❌ l'interface affichera 0 box (erreur 403). À éviter.
 
-1. Sur **github.com**, clique sur le **"+"** en haut à droite → **"New repository"**
-2. Remplis :
-   - **Repository name :** `tour-de-controle-yeelen`
-   - **Description :** `Interface GPS Yeelen Consulting`
-   - Choisis **Private** (privé — seul toi y as accès)
-   - **Ne coche rien** d'autre (pas de README, pas de .gitignore)
-3. Clique sur **"Create repository"**
-
-Tu arrives sur une page avec des instructions. **Garde cette page ouverte**, tu en auras besoin.
+L'onglet **⚙️ Paramètres** de l'interface affiche l'état : « Protection API interne ✅ Activée ».
 
 ---
 
-## ÉTAPE 2 — ENVOYER LE CODE SUR GITHUB
+### B. 📧 Activer les alertes email (box hors-ligne / surchauffe)
 
-### 2.1 Ouvre PowerShell et navigue dans le dossier du projet
+Tu recevras un email automatique quand une box tombe ou surchauffe (> 70°C).
+On utilise Gmail (gratuit). Il faut un **mot de passe d'application** Gmail (pas ton mot de passe normal).
 
+**1. Créer un mot de passe d'application Gmail :**
+- Va sur **https://myaccount.google.com/security**
+- Active la **validation en deux étapes** (obligatoire pour l'étape suivante)
+- Va sur **https://myaccount.google.com/apppasswords**
+- Crée un mot de passe d'application nommé « Yeelen Alertes »
+- Google affiche un code de 16 lettres → **copie-le** (ex: `abcd efgh ijkl mnop`, retire les espaces)
+
+**2. Sur Render** → ton service → **Environment** → ajoute ces variables :
+| Key | Value | Exemple |
+|-----|-------|---------|
+| `ALERT_EMAIL_FROM` | l'adresse Gmail qui envoie | `tonadresse@gmail.com` |
+| `ALERT_EMAIL_PASSWORD` | le mot de passe d'application (16 lettres, sans espaces) | `abcdefghijklmnop` |
+| `ALERT_EMAIL_TO` | où recevoir les alertes (peut être la même) | `a.gackou02@gmail.com` |
+| `ALERT_TEMP_THRESHOLD` | *(optionnel)* seuil surchauffe en °C | `70` |
+
+> Pour envoyer à plusieurs personnes : sépare les emails par une virgule dans `ALERT_EMAIL_TO`.
+
+**3. Render redémarre automatiquement.** Dans les logs tu verras :
+```
+✅ Alertes email activées → a.gackou02@gmail.com
+```
+
+L'alerte est envoyée **une seule fois** par incident (pas de spam), et un email
+« de retour en ligne » est envoyé quand la box revient.
+
+---
+
+### C. Récapitulatif des nouveautés dans l'interface
+
+| Fonctionnalité | Où la trouver |
+|----------------|---------------|
+| 🔒 Sécurité API | Onglet ⚙️ Paramètres → « Sécurité & alertes » |
+| 📧 Alertes email | Automatique (configuré sur Render, section B) |
+| 📄 Rapports PDF / Excel | Nouvel onglet **📄 Rapports** |
+| 💚 Santé + disponibilité 7j | Onglet 📋 Flotte (badge sur chaque box) |
+| 🔍 Filtres + pays | Onglet 📋 Flotte (menu déroulant pays) + carte (compteur par pays) |
+| 🛰️ Trajet GPS | Onglet 🗺️ Carte → menu « Afficher le trajet GPS de… » |
+| 📍 Pays / Site par box | Onglet 📋 Flotte → champ « Localisation » (admin) |
+
+> 📦 **Après ce déploiement, pense à renseigner le pays et le site de chaque box**
+> dans l'onglet Flotte — c'est ce qui alimente les filtres, la carte et les rapports.
+
+---
+
+## 🔄 COMMENT METTRE À JOUR LE CODE
+
+Quand tu veux modifier quelque chose dans l'interface ou le serveur :
+
+**Sur ton PC dans PowerShell :**
 ```powershell
 cd "C:\Users\TON_NOM\Desktop\YEELEN CONSULTING\BOX EDUCATIVE\GPS\CLAUDE\INTERFACE GPS BOX EDUCATIVES\tour-v4"
-```
-> Remplace `TON_NOM` par ton nom d'utilisateur Windows.
 
-### 2.2 Initialise Git dans ce dossier
-
-```powershell
-git init
-git add .
-git commit -m "Premier envoi - Tour de Controle Yeelen"
-```
-
-✅ **Tu dois voir à la fin :**
-```
-[main (root-commit) xxxxxxx] Premier envoi - Tour de Controle Yeelen
- X files changed, X insertions(+)
-```
-
-### 2.3 Connecte ce dossier à ton dépôt GitHub
-
-Sur la page GitHub que tu as gardée ouverte, tu vois une section **"…or push an existing repository from the command line"**.
-Copie les 3 lignes qui ressemblent à ça et exécute-les dans PowerShell :
-
-```powershell
-git remote add origin https://github.com/TON_USERNAME/tour-de-controle-yeelen.git
-git branch -M main
-git push -u origin main
-```
-
-GitHub va te demander de te connecter. Une fenêtre de navigateur s'ouvre → connecte-toi avec ton compte GitHub.
-
-✅ **Tu dois voir :**
-```
-Enumerating objects: XX, done.
-...
-Branch 'main' set up to track remote branch 'main' from 'origin'.
-```
-
-### 2.4 Vérification
-
-Retourne sur la page GitHub de ton dépôt et actualise. Tu dois voir tous tes fichiers du projet listés (app.py, database.py, streamlit_app.py, etc.)
-
-✅ **Si tu vois les fichiers → le code est sur GitHub.**
-
----
-
-## ÉTAPE 3 — DÉPLOYER LE SERVEUR FLASK SUR RENDER
-
-Render va faire tourner le serveur Flask à ta place, 24h/24, même quand ton PC est éteint.
-
-### 3.1 Créer le compte Render
-
-1. Va sur **https://render.com**
-2. Clique sur **"Get Started for Free"**
-3. Choisis **"Continue with GitHub"** → connecte-toi avec ton compte GitHub
-4. Autorise Render à accéder à GitHub
-
-✅ **Tu es dans le tableau de bord Render.**
-
-### 3.2 Créer un nouveau service web
-
-1. Clique sur **"New +"** en haut à droite
-2. Choisis **"Web Service"**
-3. Dans la section **"Connect a repository"**, tu vois ton dépôt `tour-de-controle-yeelen`
-4. Clique sur **"Connect"** à côté de ce dépôt
-
-### 3.3 Configurer le service
-
-Tu arrives sur une page de configuration. Remplis les champs **exactement** comme ça :
-
-| Champ | Valeur à entrer |
-|-------|-----------------|
-| **Name** | `yeelen-tour-controle` |
-| **Region** | `Frankfurt (EU Central)` ← choisis EU pour la vitesse depuis l'Afrique |
-| **Branch** | `main` |
-| **Runtime** | `Python 3` |
-| **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120` |
-
-**Plan :** Fais défiler vers le bas jusqu'à **"Instance Type"**. Choisis **"Starter"** ($7/month). C'est indispensable pour que le serveur ne s'endorme pas.
-
-### 3.4 Ajouter les variables d'environnement
-
-Toujours sur la même page de configuration, fais défiler vers **"Environment Variables"** et clique sur **"Add Environment Variable"**.
-
-Ajoute ces variables une par une :
-
-| Key (nom) | Value (valeur) |
-|-----------|----------------|
-| `SUPERADMIN_PASSWORD` | `TonMotDePasseSecurisé!` ← mets un vrai mot de passe |
-| `DB_PATH` | `/data/tourdecontrole.db` |
-
-### 3.5 Configurer le disque persistant
-
-Le disque persistant assure que ta base de données (utilisateurs, historique) ne se réinitialise pas à chaque mise à jour.
-
-1. Fais défiler vers **"Disks"**
-2. Clique sur **"Add Disk"**
-3. Remplis :
-   - **Name :** `database`
-   - **Mount Path :** `/data`
-   - **Size :** `1 GB` (amplement suffisant)
-4. Clique **"Save"**
-
-### 3.6 Lancer le déploiement
-
-Clique sur **"Create Web Service"** en bas de la page.
-
-Render va maintenant télécharger ton code depuis GitHub et lancer le serveur. Ça prend **2-5 minutes**.
-
-✅ **Tu dois voir une barre de progression**, puis :
-```
-==> Build successful 🎉
-==> Starting service with 'gunicorn app:app...'
-```
-
-Et en haut de la page, le statut passe de **"Building"** à **"Live"** avec un point vert.
-
-### 3.7 Récupérer l'URL de ton serveur
-
-En haut de la page de ton service Render, tu vois une URL de cette forme :
-```
-https://yeelen-tour-controle.onrender.com
-```
-**📝 COPIE CETTE URL. Tu en auras besoin dans les étapes suivantes.**
-
-### 3.8 Vérifier que Flask tourne
-
-Dans ton navigateur, va sur :
-```
-https://yeelen-tour-controle.onrender.com/api/boxes
-```
-(remplace `yeelen-tour-controle` par le vrai nom de ton service)
-
-✅ **Tu dois voir** du texte JSON qui ressemble à ça :
-```json
-{"EDUBOX_DEMO_01": {"lat": 14.6928, ...}, "EDUBOX_DEMO_02": {...}}
-```
-
-🎉 **Le serveur Flask tourne dans le cloud !**
-
-### 3.9 Récupérer le Token API des boxes
-
-Le token API est un code secret qui permet aux boxes de s'authentifier auprès du serveur cloud.
-
-1. Va sur : `https://ton-url.onrender.com/api/token_info`
-2. Tu vois quelque chose comme :
-```json
-{"token": "a3f8c9d2e1b4..."}
-```
-**📝 COPIE CE TOKEN. Tu en auras besoin pour les boxes (étape 5).**
-
----
-
-## ÉTAPE 4 — DÉPLOYER L'INTERFACE SUR STREAMLIT CLOUD
-
-### 4.1 Accéder à Streamlit Cloud
-
-1. Va sur **https://share.streamlit.io**
-2. Connecte-toi avec ton compte Streamlit
-3. Clique sur **"New app"**
-
-### 4.2 Connecter le dépôt GitHub
-
-1. Choisis **"From existing repo"**
-2. Dans **"Repository"**, sélectionne `ton-username/tour-de-controle-yeelen`
-3. Dans **"Branch"**, mets `main`
-4. Dans **"Main file path"**, mets `streamlit_app.py`
-5. Dans **"App URL"** (optionnel), tu peux choisir un nom custom comme `yeelen-controle`
-
-### 4.3 Configurer le secret FLASK_URL
-
-Avant de déployer, clique sur **"Advanced settings"** (ou le bouton engrenage ⚙️).
-
-Cherche la section **"Secrets"** et colle exactement ceci :
-```toml
-FLASK_URL = "https://yeelen-tour-controle.onrender.com"
-```
-> Remplace `yeelen-tour-controle` par l'URL exacte de **ton** service Render (celle copiée à l'étape 3.7).
-
-Clique **"Save"**.
-
-### 4.4 Déployer
-
-Clique sur **"Deploy!"**
-
-Streamlit va télécharger ton code et lancer l'interface. Ça prend **2-4 minutes**.
-
-✅ **Tu dois voir l'interface de connexion Yeelen s'ouvrir dans le navigateur.**
-
-### 4.5 Récupérer ton URL public permanent
-
-En haut du navigateur, tu vois l'URL finale de ton interface, par exemple :
-```
-https://yeelen-controle.streamlit.app
-```
-**C'est ton URL permanent. Tu peux y accéder depuis n'importe où dans le monde.**
-
-Teste sur ton téléphone : ouvre le navigateur et tape cette URL → tu dois voir la page de connexion.
-
----
-
-## ÉTAPE 5 — METTRE À JOUR LES BOXES
-
-Les boxes Raspberry Pi envoyaient leurs données à ton PC (`100.81.42.31`). Il faut maintenant les faire envoyer au serveur Render.
-
-**Pour chaque Raspberry Pi (EduBox et AgriBox), répète ces étapes :**
-
-### 5.1 Connexion SSH à la box
-
-Sur ton PC dans PowerShell :
-```powershell
-# Pour EduBox :
-ssh admin@100.89.175.28
-
-# Pour AgriBox :
-ssh pi@100.66.117.83
-```
-
-### 5.2 Modifier le script GPS
-
-```bash
-nano /home/pi/tracker_gps.py
-```
-> Pour l'EduBox, le fichier est à `/home/admin/tracker_gps.py`
-
-**Modifie les deux premières lignes de configuration :**
-
-Trouve :
-```python
-URL_TOUR_CONTROLE = "http://100.81.42.31:5000/mise_a_jour_box"
-ID_BOX = "AGRIBOX-001"
-```
-
-Remplace par :
-```python
-URL_TOUR_CONTROLE = "https://yeelen-tour-controle.onrender.com/mise_a_jour_box"
-API_TOKEN         = "COLLE_ICI_LE_TOKEN_COPIE_A_L_ETAPE_3_9"
-ID_BOX = "AGRIBOX-001"
-```
-
-**Ensuite, trouve la ligne qui fait l'envoi (`requests.post`) et ajoute le token :**
-
-Trouve :
-```python
-r = requests.post(URL_TOUR_CONTROLE, json=donnees, timeout=5)
-```
-
-Remplace par :
-```python
-r = requests.post(
-    URL_TOUR_CONTROLE,
-    json={**donnees, "api_token": API_TOKEN},
-    timeout=10
-)
-```
-
-> ⚠️ Maintenant le serveur est public (pas protégé par Tailscale), donc le token est **indispensable**.
-
-**Sauvegarde :** `Ctrl+X` → `Y` → `Entrée`
-
-### 5.3 Redémarrer le service
-
-```bash
-sudo systemctl restart tracker_gps.service
-```
-
-**Vérifier les logs :**
-```bash
-sudo journalctl -fu tracker_gps.service
-```
-
-✅ **Tu dois voir :**
-```
-Démarrage Traqueur GPS — AGRIBOX-001
-Serveur : https://yeelen-tour-controle.onrender.com/mise_a_jour_box
-IP Tailscale : 100.66.117.83
-Recherche satellites... (4 utilisé(s)) — tentative 1
-...
-[25/05/2026 10:32:15] Position envoyee lat=14.69280 lon=-17.44670
-```
-
----
-
-## ÉTAPE 6 — VÉRIFICATION FINALE
-
-### Checklist globale
-
-- [ ] GitHub : dépôt créé avec tous les fichiers
-- [ ] Render : service **"Live"** (point vert), URL accessible
-- [ ] Streamlit Cloud : app déployée, interface accessible depuis ton téléphone
-- [ ] Render : variable `FLASK_URL` correspond à l'URL Render dans Streamlit Cloud secrets
-- [ ] Boxes : scripts mis à jour avec l'URL Render + token API
-- [ ] Boxes : service redémarré
-- [ ] Interface : les boxes apparaissent sur la carte avec statut "Connecté"
-
-### Test depuis ton téléphone
-
-1. Coupe le WiFi de ton téléphone (utilise la 4G)
-2. Ouvre le navigateur et tape ton URL Streamlit Cloud
-3. Connecte-toi avec `superadmin` et ton mot de passe
-4. ✅ Tu dois voir la carte et les boxes
-
-🎉 **Si tu vois ça → tout fonctionne ! Ton PC n'est plus nécessaire.**
-
----
-
-## RÉSUMÉ DES 3 URLS À RETENIR
-
-| URL | Usage |
-|-----|-------|
-| `https://yeelen-tour-controle.onrender.com` | Serveur Flask (boxes envoient ici) |
-| `https://yeelen-controle.streamlit.app` | Interface (toi tu accèdes ici) |
-| `https://github.com/TON_USERNAME/tour-de-controle-yeelen` | Code source |
-
----
-
-## METTRE À JOUR LE CODE (pour les modifications futures)
-
-Quand tu voudras modifier le code (changer un texte, ajouter une feature, etc.) :
-
-1. Modifie les fichiers sur ton PC dans le dossier `tour-v4`
-2. Ouvre PowerShell, va dans le dossier, puis :
-```powershell
+# 1. Modifie les fichiers avec un éditeur de texte
+# 2. Envoie les modifications sur GitHub
 git add .
 git commit -m "Description de ce que tu as changé"
 git push
 ```
-3. Render et Streamlit Cloud détectent automatiquement le nouveau code et se redéployent en **2-3 minutes**. Tu n'as rien d'autre à faire.
+
+→ Render et Streamlit Cloud détectent le changement et se redéploient **automatiquement en 2-3 minutes**.
 
 ---
 
-## DÉPANNAGE CLOUD
+## 🔧 MAINTENANCE RENDER
 
-### ❓ "Application error" sur Streamlit Cloud
+### Voir les logs du serveur Flask
 
-1. Va sur **share.streamlit.io** → clique sur ton app → **"Manage app"** → **"Logs"**
-2. Lis l'erreur en rouge
-3. Cause fréquente : `FLASK_URL` mal configuré dans les secrets → vérifie qu'il n'y a pas d'espace ou de `/` en trop à la fin
+1. Va sur **https://dashboard.render.com**
+2. Clique sur `tour-de-controle-yeelen`
+3. Onglet **"Logs"**
 
-### ❓ Les boxes n'apparaissent plus sur la carte
+### Forcer un redéploiement manuel
 
-1. Vérifie que le service Render est **"Live"** (pas "Suspended")
-2. Sur ton PC : `curl https://ton-url.onrender.com/api/boxes` → doit afficher du JSON
-3. Sur chaque box : `sudo journalctl -fu tracker_gps.service --lines=10` → cherche des erreurs
+1. Dashboard Render → ton service
+2. Bouton **"Manual Deploy"** → **"Deploy latest commit"**
 
-### ❓ "401 Unauthorized" dans les logs de la box
+### Vérifier les variables d'environnement
 
-Le token API est incorrect. Retourne sur `https://ton-url.onrender.com/api/token_info` pour récupérer le bon token et mets-le à jour sur la box.
+Dashboard Render → ton service → onglet **"Environment"**
 
-### ❓ Render affiche "Service Suspended"
+| Variable | Valeur |
+|----------|--------|
+| `SUPERADMIN_PASSWORD` | Ton mot de passe admin |
+| `DB_PATH` | `/data/tourdecontrole.db` |
 
-Le forfait Starter facture à la consommation. Si la carte de paiement a expiré, le service se suspend. Mets à jour le moyen de paiement sur **https://dashboard.render.com/billing**.
+### Vérifier le disque persistant (base de données)
 
-### ❓ Je veux changer le mot de passe superadmin
+Dashboard Render → ton service → onglet **"Disks"**
 
-Va sur Render → ton service → **"Environment"** → modifie la valeur de `SUPERADMIN_PASSWORD` → **"Save Changes"**. Le service redémarre et crée le nouveau mot de passe.
+Tu dois voir un disque avec :
+- **Name :** `database`
+- **Mount Path :** `/data`
+- **Size :** 1 GB
 
-> ⚠️ Cela ne fonctionne que si le compte superadmin n'a jamais été créé. Si tu l'as déjà créé, utilise plutôt l'onglet **Utilisateurs** dans l'interface pour changer le mot de passe.
+> ⚠️ Si le disque n'est pas là, la base de données se réinitialise à chaque redéploiement (perte des utilisateurs et de l'historique).
 
 ---
 
-*Yeelen Consulting — Guide Déploiement Cloud v1.0 — Mai 2026*
+## 🔧 MAINTENANCE STREAMLIT CLOUD
+
+### Voir les logs de l'interface
+
+1. Va sur **https://share.streamlit.io**
+2. Clique sur les `⋮` → **"Manage app"** → onglet **"Logs"**
+
+### Modifier les secrets (variables de configuration)
+
+1. **https://share.streamlit.io** → `⋮` → **"Settings"** → **"Secrets"**
+2. Le contenu doit être :
+```toml
+FLASK_URL = "https://tour-de-controle-yeelen.onrender.com"
+INTERNAL_API_KEY = "ta_cle_si_securite_activee"
+```
+> La ligne `INTERNAL_API_KEY` n'est nécessaire que si tu as activé la sécurité (section A).
+> Si oui, elle doit être identique à celle définie sur Render.
+
+### Redémarrer l'interface
+
+1. **https://share.streamlit.io** → `⋮` → **"Reboot app"**
+
+---
+
+## 🔑 RÉGÉNÉRER LE TOKEN API (si compromis)
+
+Si le token API a été exposé ou compromis :
+
+1. Connecte-toi à l'interface : **https://tour-de-controle-yeelen.streamlit.app**
+2. Onglet **⚙️ Paramètres**
+3. Clique sur **"Régénérer le token"**
+4. **Copie le nouveau token**
+5. Mets à jour `API_TOKEN` dans le fichier `tracker_gps.py` de **chaque box** :
+   ```bash
+   # Sur chaque Raspberry Pi (SSH)
+   nano /home/pi/tracker_gps.py
+   # Modifie la ligne API_TOKEN = "..."
+   sudo systemctl restart tracker_gps.service
+   ```
+
+---
+
+## 🩺 DIAGNOSTIC RAPIDE — "les boxes n'apparaissent plus"
+
+**Étape 1 — Le serveur Render tourne-t-il ?**
+```
+https://tour-de-controle-yeelen.onrender.com/api/boxes
+```
+→ Doit afficher du JSON. Si erreur → va sur Render dashboard et redémarre.
+
+**Étape 2 — La box envoie-t-elle des données ?**
+```bash
+# SSH sur la box
+sudo journalctl -fu tracker_gps.service --lines=20
+```
+→ Cherche "✅ Envoyé" ou "⚠️ 401" ou "❌ Impossible de joindre"
+
+**Étape 3 — L'interface Streamlit est-elle à jour ?**
+→ Rafraîchis la page. L'interface se met à jour toutes les 30 secondes.
+
+---
+
+## 📦 AJOUTER UNE NOUVELLE BOX
+
+Pour connecter un nouveau Raspberry Pi au système :
+
+1. Suis le **GUIDE_COMPLET_INSTALLATION.md** (étapes 3 à 8)
+2. Le seul fichier à copier sur le Raspberry Pi est **`tracker_gps_TEMPLATE.py`**
+3. Modifie uniquement `ID_BOX` dans ce fichier
+4. La box apparaît automatiquement sur la carte dès qu'elle envoie sa première position
+
+---
+
+## 💰 COÛTS MENSUELS
+
+| Service | Plan | Coût |
+|---------|------|------|
+| Render.com | Starter (Flask + disque 1GB) | ~7 $/mois |
+| Streamlit Cloud | Free | 0 $/mois |
+| GitHub | Free | 0 $/mois |
+| **Total** | | **~7 $/mois (~6,50€)** |
+
+Paiement Render : carte bancaire configurée dans **https://dashboard.render.com/billing**
+
+---
+
+*Yeelen Consulting — Documentation Cloud v2.0 — Mai 2026*

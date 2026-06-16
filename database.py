@@ -4,7 +4,7 @@ Gestion : utilisateurs, noms de boxes, historique, logs, tokens API
 """
 
 import sqlite3, secrets, os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -46,7 +46,15 @@ def init_db() -> None:
         temperature REAL,
         users       INTEGER DEFAULT 0,
         data_mb     REAL    DEFAULT 0,
-        status      TEXT    DEFAULT 'Connecté'
+        status      TEXT    DEFAULT 'Connecté',
+        lat         REAL,
+        lon         REAL
+    );
+
+    CREATE TABLE IF NOT EXISTS box_meta (
+        box_id TEXT PRIMARY KEY,
+        pays   TEXT DEFAULT '',
+        site   TEXT DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS actions_log (
@@ -64,6 +72,13 @@ def init_db() -> None:
         is_active   INTEGER DEFAULT 1
     );
     """)
+
+    # ── Migration : ajouter lat/lon à box_history si base ancienne ────────────
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(box_history)").fetchall()]
+    if "lat" not in cols:
+        conn.execute("ALTER TABLE box_history ADD COLUMN lat REAL")
+    if "lon" not in cols:
+        conn.execute("ALTER TABLE box_history ADD COLUMN lon REAL")
 
     # ── Superadmin par défaut ─────────────────────────────────────────────────
     if not conn.execute("SELECT id FROM users WHERE username='superadmin'").fetchone():
@@ -204,8 +219,8 @@ def init_default_names(defaults: dict) -> None:
 def save_box_snapshot(box_id: str, data: dict) -> None:
     conn = get_db()
     conn.execute(
-        "INSERT INTO box_history (box_id, timestamp, temperature, users, data_mb, status) "
-        "VALUES (?,?,?,?,?,?)",
+        "INSERT INTO box_history (box_id, timestamp, temperature, users, data_mb, status, lat, lon) "
+        "VALUES (?,?,?,?,?,?,?,?)",
         (
             box_id,
             datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
@@ -213,6 +228,8 @@ def save_box_snapshot(box_id: str, data: dict) -> None:
             data.get("users", 0),
             data.get("data_mb", 0),
             data.get("status", "Connecté"),
+            data.get("lat"),
+            data.get("lon"),
         ),
     )
     conn.commit()
@@ -222,12 +239,80 @@ def save_box_snapshot(box_id: str, data: dict) -> None:
 def get_box_history(box_id: str, limit: int = 288) -> list[dict]:
     conn = get_db()
     rows = conn.execute(
-        "SELECT timestamp, temperature, users, data_mb, status "
+        "SELECT timestamp, temperature, users, data_mb, status, lat, lon "
         "FROM box_history WHERE box_id=? ORDER BY timestamp DESC LIMIT ?",
         (box_id, limit),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_gps_trail(box_id: str, limit: int = 200) -> list[dict]:
+    """Retourne les positions GPS successives (pour tracer le trajet)."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT timestamp, lat, lon FROM box_history "
+        "WHERE box_id=? AND lat IS NOT NULL AND lon IS NOT NULL "
+        "ORDER BY timestamp ASC LIMIT ?",
+        (box_id, limit),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_box_stats(box_id: str, hours: int = 168) -> dict:
+    """
+    Calcule les statistiques de santé d'une box sur les N dernières heures.
+    Retourne : uptime (%), nb de relevés, temp moyenne/max, dernière activité.
+    """
+    conn = get_db()
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    rows = conn.execute(
+        "SELECT status, temperature FROM box_history "
+        "WHERE box_id=? AND timestamp >= ?",
+        (box_id, since),
+    ).fetchall()
+    conn.close()
+
+    total = len(rows)
+    if total == 0:
+        return {"uptime": None, "releves": 0, "temp_moy": None, "temp_max": None}
+
+    online = sum(1 for r in rows if r["status"] == "Connecté")
+    temps  = [r["temperature"] for r in rows if r["temperature"] is not None]
+    return {
+        "uptime":   round(100.0 * online / total, 1),
+        "releves":  total,
+        "temp_moy": round(sum(temps) / len(temps), 1) if temps else None,
+        "temp_max": round(max(temps), 1) if temps else None,
+    }
+
+
+# ── Métadonnées boxes (pays / site) ───────────────────────────────────────────
+
+def get_box_meta(box_id: str) -> dict:
+    conn = get_db()
+    row = conn.execute("SELECT pays, site FROM box_meta WHERE box_id=?", (box_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else {"pays": "", "site": ""}
+
+
+def get_all_box_meta() -> dict:
+    conn = get_db()
+    rows = conn.execute("SELECT box_id, pays, site FROM box_meta").fetchall()
+    conn.close()
+    return {r["box_id"]: {"pays": r["pays"], "site": r["site"]} for r in rows}
+
+
+def save_box_meta(box_id: str, pays: str, site: str, done_by: str = "system") -> None:
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO box_meta (box_id, pays, site) VALUES (?,?,?)",
+        (box_id, pays.strip(), site.strip()),
+    )
+    _log(conn, done_by, "EDIT_META", f"{box_id} → pays={pays}, site={site}")
+    conn.commit()
+    conn.close()
 
 
 # ── Journal d'actions ─────────────────────────────────────────────────────────

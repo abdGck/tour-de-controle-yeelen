@@ -10,6 +10,12 @@ Lancement : python app.py
 """
 
 import os
+import ssl
+import time
+import smtplib
+import threading
+from email.mime.text import MIMEText
+from functools import wraps
 from datetime import datetime, timedelta, timezone
 
 from flask import (Flask, request, jsonify, session,
@@ -19,7 +25,8 @@ from database import (
     init_db, init_default_names,
     login_user, get_users, create_user, delete_user, toggle_user, update_password,
     get_box_name, save_box_name,
-    save_box_snapshot, get_box_history,
+    save_box_snapshot, get_box_history, get_gps_trail, get_box_stats,
+    get_box_meta, get_all_box_meta, save_box_meta,
     get_logs, log_action,
     get_api_token, verify_api_token, regenerate_api_token,
 )
@@ -28,6 +35,23 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", os.urandom(32).hex())
 
 TIMEOUT_MIN = 6
+
+# ── Sécurité API interne ───────────────────────────────────────────────────────
+# Clé partagée entre Streamlit (front) et Flask (back) pour protéger les routes
+# sensibles maintenant que le serveur est public sur Internet. Si non définie →
+# pas d'enforcement (mode développement local sans configuration).
+INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
+
+
+def require_internal(fn):
+    """Protège une route : exige l'en-tête X-Internal-Key si INTERNAL_API_KEY est défini."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if INTERNAL_API_KEY:
+            if request.headers.get("X-Internal-Key", "") != INTERNAL_API_KEY:
+                return jsonify({"erreur": "Accès non autorisé"}), 403
+        return fn(*args, **kwargs)
+    return wrapper
 
 # ── Initialisation DB ─────────────────────────────────────────────────────────
 init_db()
@@ -83,12 +107,112 @@ def verifier_statuts() -> None:
 
 def boxes_pour_api() -> dict:
     verifier_statuts()
+    metas = get_all_box_meta()
     out = {}
     for id_mat, data in box_data.items():
         d = {k: v for k, v in data.items() if k != "timestamp_interne"}
         d["nom_affiche"] = get_box_name(id_mat, id_mat)
+        meta = metas.get(id_mat, {"pays": "", "site": ""})
+        d["pays"] = meta.get("pays", "")
+        d["site"] = meta.get("site", "")
         out[id_mat] = d
     return out
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SYSTÈME D'ALERTES EMAIL
+# ══════════════════════════════════════════════════════════════════════════════
+
+ALERT_FROM      = os.environ.get("ALERT_EMAIL_FROM", "")
+ALERT_PASSWORD  = os.environ.get("ALERT_EMAIL_PASSWORD", "")
+ALERT_TO        = os.environ.get("ALERT_EMAIL_TO", "")
+ALERT_SMTP_HOST = os.environ.get("ALERT_SMTP_HOST", "smtp.gmail.com")
+ALERT_SMTP_PORT = int(os.environ.get("ALERT_SMTP_PORT", "587"))
+ALERT_TEMP_MAX  = float(os.environ.get("ALERT_TEMP_THRESHOLD", "70"))
+ALERTS_ENABLED  = bool(ALERT_FROM and ALERT_PASSWORD and ALERT_TO)
+
+# Mémoire anti-spam : ne pas renvoyer la même alerte en boucle
+_alert_state: dict = {}   # box_id → {"offline": bool, "overheat": bool}
+
+
+def _envoyer_email(sujet: str, corps: str) -> None:
+    if not ALERTS_ENABLED:
+        return
+    try:
+        msg = MIMEText(corps, "plain", "utf-8")
+        msg["Subject"] = sujet
+        msg["From"]    = ALERT_FROM
+        msg["To"]      = ALERT_TO
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(ALERT_SMTP_HOST, ALERT_SMTP_PORT, timeout=15) as server:
+            server.starttls(context=ctx)
+            server.login(ALERT_FROM, ALERT_PASSWORD)
+            server.sendmail(ALERT_FROM, [t.strip() for t in ALERT_TO.split(",")], msg.as_string())
+        print(f"📧 Alerte envoyée : {sujet}")
+    except Exception as e:
+        print(f"❌ Échec envoi email : {e}")
+
+
+def _verifier_alertes() -> None:
+    """Vérifie chaque box et envoie un email si offline ou surchauffe (avec anti-spam)."""
+    verifier_statuts()
+    heure = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    for box_id, data in box_data.items():
+        if "DEMO" in box_id.upper():
+            continue   # ne pas alerter sur les boxes de démonstration
+        nom   = get_box_name(box_id, box_id)
+        etat  = _alert_state.setdefault(box_id, {"offline": False, "overheat": False})
+
+        # ── Hors-ligne ────────────────────────────────────────────────────────
+        is_offline = data.get("status") != "Connecté"
+        if is_offline and not etat["offline"]:
+            _envoyer_email(
+                f"🔴 Box HORS-LIGNE — {nom}",
+                f"La box « {nom} » ({box_id}) ne répond plus.\n\n"
+                f"Dernier signal : {data.get('last_seen', '?')}\n"
+                f"IP Tailscale   : {data.get('ip_tailscale', '?')}\n"
+                f"Détecté le     : {heure}\n\n"
+                f"— Tour de Contrôle Yeelen",
+            )
+            etat["offline"] = True
+        elif not is_offline and etat["offline"]:
+            _envoyer_email(
+                f"🟢 Box de retour EN LIGNE — {nom}",
+                f"La box « {nom} » ({box_id}) a renvoyé un signal.\n"
+                f"Rétabli le : {heure}\n\n— Tour de Contrôle Yeelen",
+            )
+            etat["offline"] = False
+
+        # ── Surchauffe ────────────────────────────────────────────────────────
+        temp = data.get("temperature")
+        if temp is not None and not is_offline:
+            if temp >= ALERT_TEMP_MAX and not etat["overheat"]:
+                _envoyer_email(
+                    f"🌡️ SURCHAUFFE — {nom} ({temp}°C)",
+                    f"La box « {nom} » ({box_id}) dépasse le seuil de {ALERT_TEMP_MAX}°C.\n\n"
+                    f"Température : {temp}°C\n"
+                    f"Détecté le  : {heure}\n\n"
+                    f"⚠️ Risque matériel. Vérifie la ventilation / l'emplacement.\n\n"
+                    f"— Tour de Contrôle Yeelen",
+                )
+                etat["overheat"] = True
+            elif temp < ALERT_TEMP_MAX - 5 and etat["overheat"]:
+                etat["overheat"] = False   # hystérésis : revient sous seuil - 5°C
+
+
+def _boucle_surveillance() -> None:
+    """Thread de fond : vérifie les alertes toutes les 60 secondes."""
+    while True:
+        try:
+            _verifier_alertes()
+        except Exception as e:
+            print(f"⚠️ Erreur surveillance alertes : {e}")
+        time.sleep(60)
+
+
+if ALERTS_ENABLED:
+    threading.Thread(target=_boucle_surveillance, daemon=True).start()
+    print(f"✅ Alertes email activées → {ALERT_TO}")
 
 
 def _is_trusted(req) -> bool:
@@ -106,6 +230,7 @@ def _is_local(req) -> bool:
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.route("/api/boxes")
+@require_internal
 def api_boxes():
     return jsonify(boxes_pour_api())
 
@@ -126,6 +251,7 @@ def api_login():
 # ── Boxes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/api/renommer_box", methods=["POST"])
+@require_internal
 def api_renommer():
     body = request.get_json(silent=True) or {}
     id_mat = body.get("id_materiel")
@@ -138,6 +264,7 @@ def api_renommer():
 
 
 @app.route("/api/reset_data", methods=["POST"])
+@require_internal
 def api_reset_data():
     body   = request.get_json(silent=True) or {}
     id_mat = body.get("id_materiel")
@@ -151,18 +278,48 @@ def api_reset_data():
 
 
 @app.route("/api/history/<box_id>")
+@require_internal
 def api_history(box_id):
     return jsonify(get_box_history(box_id))
+
+
+@app.route("/api/gps_trail/<box_id>")
+@require_internal
+def api_gps_trail(box_id):
+    return jsonify(get_gps_trail(box_id))
+
+
+@app.route("/api/box_stats/<box_id>")
+@require_internal
+def api_box_stats(box_id):
+    hours = int(request.args.get("hours", 168))
+    return jsonify(get_box_stats(box_id, hours))
+
+
+# ── Métadonnées (pays / site) ─────────────────────────────────────────────────
+
+@app.route("/api/box_meta", methods=["POST"])
+@require_internal
+def api_box_meta():
+    body = request.get_json(silent=True) or {}
+    id_mat = body.get("id_materiel")
+    if not id_mat:
+        return jsonify({"ok": False}), 400
+    save_box_meta(id_mat, body.get("pays", ""), body.get("site", ""),
+                  body.get("done_by", "api"))
+    return jsonify({"ok": True})
 
 
 # ── Utilisateurs ──────────────────────────────────────────────────────────────
 
 @app.route("/api/users", methods=["GET"])
+@require_internal
 def api_get_users():
     return jsonify(get_users())
 
 
 @app.route("/api/users", methods=["POST"])
+@require_internal
 def api_create_user():
     body = request.get_json(silent=True) or {}
     ok, err = create_user(
@@ -177,6 +334,7 @@ def api_create_user():
 
 
 @app.route("/api/users/<int:user_id>", methods=["DELETE"])
+@require_internal
 def api_delete_user(user_id):
     body = request.get_json(silent=True, force=True) or {}
     delete_user(user_id, body.get("deleted_by", "api"))
@@ -184,6 +342,7 @@ def api_delete_user(user_id):
 
 
 @app.route("/api/users/<int:user_id>/toggle", methods=["POST"])
+@require_internal
 def api_toggle_user(user_id):
     body = request.get_json(silent=True) or {}
     toggle_user(user_id, body.get("active", True), body.get("done_by", "api"))
@@ -191,6 +350,7 @@ def api_toggle_user(user_id):
 
 
 @app.route("/api/users/password", methods=["POST"])
+@require_internal
 def api_update_password():
     body = request.get_json(silent=True) or {}
     ok, err = update_password(
@@ -206,6 +366,7 @@ def api_update_password():
 # ── Logs ──────────────────────────────────────────────────────────────────────
 
 @app.route("/api/logs")
+@require_internal
 def api_logs():
     return jsonify(get_logs(150))
 
@@ -213,11 +374,13 @@ def api_logs():
 # ── Token API ─────────────────────────────────────────────────────────────────
 
 @app.route("/api/token_info")
+@require_internal
 def api_token_info():
     return jsonify({"token": get_api_token()})
 
 
 @app.route("/api/token_regenerate", methods=["POST"])
+@require_internal
 def api_token_regenerate():
     new_token = regenerate_api_token()
     return jsonify({"ok": True, "token": new_token})
@@ -326,20 +489,20 @@ if __name__ == "__main__":
         ips = []
 
     print("\n" + "═"*60)
-    print("  ✅  Tour de Contrôle v5 — Yeelen Consulting")
+    print("  ✅  Tour de Contrôle v6 — Yeelen Consulting")
     print("═"*60)
     print(f"  Flask       → http://localhost:5000")
     print(f"  Streamlit   → python -m streamlit run streamlit_app.py")
     print(f"  Interface   → http://localhost:8501")
     print("─"*60)
-    print("  📡  ENDPOINT pour les boxes :")
-    print(f"      http://100.81.42.31:5000/mise_a_jour_box")
-    print("  ✅  Réseau Tailscale (100.x.x.x) = accès autorisé sans token")
+    print("  📡  ENDPOINT pour les boxes :  /mise_a_jour_box")
+    print("  🔑  Chaque box doit envoyer son champ 'api_token'")
+    print(f"  🛡️   Sécurité API interne : {'ACTIVÉE' if INTERNAL_API_KEY else 'désactivée (INTERNAL_API_KEY non défini)'}")
+    print(f"  📧  Alertes email        : {'ACTIVÉES → ' + ALERT_TO if ALERTS_ENABLED else 'désactivées'}")
     print("─"*60)
     print("  📦  Payload attendu de chaque box :")
-    print('      { "id_materiel": "BOX_ID",')
-    print('        "lat": 48.85, "lon": 2.35,')
-    print('        "temperature": 45.2, "users": 12,')
-    print('        "data_mb": 105.5, "ip_tailscale": "100.x.x.x" }')
+    print('      { "id_materiel": "BOX_ID", "lat": 48.85, "lon": 2.35,')
+    print('        "temperature": 45.2, "users": 12, "data_mb": 105.5,')
+    print('        "ip_tailscale": "100.x.x.x", "api_token": "..." }')
     print("═"*60 + "\n")
     app.run(debug=False, host="0.0.0.0", port=5000)
