@@ -8,7 +8,10 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from werkzeug.security import generate_password_hash, check_password_hash
 
-DB_PATH = Path(os.environ.get("DB_PATH", str(Path(__file__).parent / "tourdecontrole.db")))
+_db_raw = os.environ.get("DB_PATH", str(Path(__file__).parent / "tourdecontrole.db"))
+# Nettoyage défensif : retire espaces, backticks et guillemets collés par erreur
+_db_raw = _db_raw.strip().strip("`").strip('"').strip("'").strip()
+DB_PATH = Path(_db_raw)
 
 
 def get_db() -> sqlite3.Connection:
