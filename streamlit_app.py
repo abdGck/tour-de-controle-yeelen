@@ -1640,12 +1640,34 @@ def tab_parametres() -> None:
                   else '💻 Local')),
         unsafe_allow_html=True,
     )
-    st.markdown("""
-    <div class="alert-info" style="margin:.6rem 0 1.2rem">
-      📧 Les alertes email (box hors-ligne / surchauffe) se configurent côté serveur Render
-      via les variables <code>ALERT_EMAIL_FROM</code>, <code>ALERT_EMAIL_PASSWORD</code>,
-      <code>ALERT_EMAIL_TO</code>. Voir le guide de déploiement.
-    </div>""", unsafe_allow_html=True)
+    # État réel des alertes (lu depuis le serveur)
+    al = _get("/api/alertes_status") or {}
+    if al.get("enabled"):
+        st.markdown(
+            info_row("Alertes email",
+                     '<span style="color:#16A34A;font-weight:700">✅ Activées</span>') +
+            info_row("Destinataire(s)", al.get("to", "—"), mono=True) +
+            info_row("Seuil surchauffe", f"{al.get('seuil', 70)}°C"),
+            unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
+        if st.button("📧  Envoyer un email de test", use_container_width=False):
+            with st.spinner("Envoi en cours…"):
+                res = _post("/api/test_email", {})
+            if res.get("ok"):
+                st.success(f"✅ Email de test envoyé à **{al.get('to')}** — "
+                           f"vérifie ta boîte mail (et les spams).")
+            else:
+                st.error(f"❌ Échec : {res.get('erreur', 'erreur inconnue')}")
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="alert-warning" style="margin:.6rem 0 1.2rem">
+          ⚠️ Alertes email <b>désactivées</b>. Pour les activer, définis sur Render les variables
+          <code>ALERT_EMAIL_FROM</code>, <code>ALERT_EMAIL_PASSWORD</code> (mot de passe
+          d'application Gmail) et <code>ALERT_EMAIL_TO</code>. Voir le guide de déploiement.
+        </div>""", unsafe_allow_html=True)
 
     st.divider()
 

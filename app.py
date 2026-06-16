@@ -135,9 +135,10 @@ ALERTS_ENABLED  = bool(ALERT_FROM and ALERT_PASSWORD and ALERT_TO)
 _alert_state: dict = {}   # box_id → {"offline": bool, "overheat": bool}
 
 
-def _envoyer_email(sujet: str, corps: str) -> None:
-    if not ALERTS_ENABLED:
-        return
+def _envoyer_email(sujet: str, corps: str) -> tuple:
+    """Envoie un email. Retourne (True, '') si OK, sinon (False, message_erreur)."""
+    if not (ALERT_FROM and ALERT_PASSWORD and ALERT_TO):
+        return False, "Variables ALERT_EMAIL_* non configurées sur le serveur"
     try:
         msg = MIMEText(corps, "plain", "utf-8")
         msg["Subject"] = sujet
@@ -148,9 +149,11 @@ def _envoyer_email(sujet: str, corps: str) -> None:
             server.starttls(context=ctx)
             server.login(ALERT_FROM, ALERT_PASSWORD)
             server.sendmail(ALERT_FROM, [t.strip() for t in ALERT_TO.split(",")], msg.as_string())
-        print(f"📧 Alerte envoyée : {sujet}")
+        print(f"📧 Email envoyé : {sujet}", flush=True)
+        return True, ""
     except Exception as e:
-        print(f"❌ Échec envoi email : {e}")
+        print(f"❌ Échec envoi email : {e}", flush=True)
+        return False, str(e)
 
 
 def _verifier_alertes() -> None:
@@ -212,7 +215,7 @@ def _boucle_surveillance() -> None:
 
 if ALERTS_ENABLED:
     threading.Thread(target=_boucle_surveillance, daemon=True).start()
-    print(f"✅ Alertes email activées → {ALERT_TO}")
+    print(f"✅ Alertes email activées → {ALERT_TO}", flush=True)
 
 
 def _is_trusted(req) -> bool:
@@ -384,6 +387,37 @@ def api_token_info():
 def api_token_regenerate():
     new_token = regenerate_api_token()
     return jsonify({"ok": True, "token": new_token})
+
+
+# ── Alertes email ─────────────────────────────────────────────────────────────
+
+@app.route("/api/alertes_status")
+@require_internal
+def api_alertes_status():
+    """État de la configuration des alertes (sans révéler le mot de passe)."""
+    return jsonify({
+        "enabled": ALERTS_ENABLED,
+        "from":    ALERT_FROM,
+        "to":      ALERT_TO,
+        "seuil":   ALERT_TEMP_MAX,
+    })
+
+
+@app.route("/api/test_email", methods=["POST"])
+@require_internal
+def api_test_email():
+    """Envoie immédiatement un email de test pour vérifier la configuration."""
+    heure = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ok, err = _envoyer_email(
+        "✅ Test alerte — Tour de Contrôle Yeelen",
+        f"Ceci est un email de test envoyé depuis ton serveur.\n\n"
+        f"Si tu lis ce message, les alertes automatiques (box hors-ligne / surchauffe) "
+        f"fonctionnent parfaitement.\n\n"
+        f"Envoyé le : {heure}\n\n— Tour de Contrôle Yeelen",
+    )
+    if ok:
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "erreur": err}), 400
 
 
 # ── Réception données boxes ───────────────────────────────────────────────────
